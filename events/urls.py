@@ -12,6 +12,7 @@ urlpatterns = [
     path('convention/<int:pk>/calendar.ics', views.convention_ical_feed, name='convention_ical_feed'),
     path('convention/create/', views.convention_create, name='convention_create'),
     path('convention/<int:pk>/edit/', views.convention_edit, name='convention_edit'),
+    path('convention/<int:pk>/manage/', views.manage_convention_items, name='manage_convention_items'),
     path('panel/create/<int:day_pk>/', views.panel_create, name='panel_create'),
     path('panel/<int:pk>/edit/', views.panel_edit, name='panel_edit'),
     path('panel/<int:pk>/delete/', views.panel_delete, name='panel_delete'),

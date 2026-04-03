@@ -1305,6 +1305,9 @@ window.addEventListener('load', function() {
         <a href="{% url 'events:convention_edit' convention.pk %}" class="btn btn-primary btn-admin-action px-4 py-2 d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, var(--primary-purple), var(--primary-purple-dark)); border: none; font-weight: 500; font-size: 1.1rem; box-shadow: 0 2px 8px rgba(98,0,234,0.10);">
             <i class="material-icons me-2">edit</i> <span>Edit Convention</span>
         </a>
+        <a href="{% url 'events:manage_convention_items' convention.pk %}" class="btn btn-primary btn-admin-action px-4 py-2 d-flex align-items-center justify-content-center" style="background: linear-gradient(135deg, var(--primary-purple), var(--primary-purple-dark)); border: none; font-weight: 500; font-size: 1.1rem; box-shadow: 0 2px 8px rgba(98,0,234,0.10);">
+            <i class="material-icons me-2">settings</i> <span>Manage Items</span>
+        </a>
         <div class="dropdown d-inline-block">
             <button class="btn btn-primary btn-admin-action dropdown-toggle px-4 py-2" type="button" id="addEventDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="background: linear-gradient(135deg, var(--primary-purple), var(--primary-purple-dark)); border: none; font-weight: 500; font-size: 1.1rem; box-shadow: 0 2px 8px rgba(98,0,234,0.10);">
                 <i class="material-icons">add</i> Add Event

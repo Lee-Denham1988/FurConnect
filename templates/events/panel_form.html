@@ -285,7 +285,10 @@
             </div>
 
             <div class="mb-3">
-                <label for="{{ form.room.id_for_label }}" class="form-label">{{ form.room.label }}</label>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label for="{{ form.room.id_for_label }}" class="form-label mb-0">{{ form.room.label }}</label>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addRoomModal">+ Add Room</button>
+                </div>
                 {{ form.room.errors }}
                 {{ form.room }}
                 {% if form.room.help_text %}
@@ -294,7 +297,10 @@
             </div>
 
             <div class="mb-3">
-                <label for="{{ form.host.id_for_label }}" class="form-label">{{ form.host.label }}</label>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label for="{{ form.host.id_for_label }}" class="form-label mb-0">{{ form.host.label }}</label>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addHostModal">+ Add Host</button>
+                </div>
                 {{ form.host.errors }}
                 {{ form.host }}
                 {% if form.host.help_text %}
@@ -303,7 +309,10 @@
             </div>
 
             <div class="mb-3">
-                <label for="{{ form.tags.id_for_label }}" class="form-label">{{ form.tags.label }}</label>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label for="{{ form.tags.id_for_label }}" class="form-label mb-0">{{ form.tags.label }}</label>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addTagModal">+ Add Tag</button>
+                </div>
                 {{ form.tags.errors }}
                 {{ form.tags }}
                 {% if form.tags.help_text %}

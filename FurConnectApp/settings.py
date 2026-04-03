@@ -49,24 +49,24 @@ except ImportError:
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-ozwj#9eg+=0leqx9pwzsgo@yqapfrzc3220(nfum7se6ie$tyq'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-ozwj#9eg+=0leqx9pwzsgo@yqapfrzc3220(nfum7se6ie$tyq')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True').lower() in ['1', 'true', 'yes']
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1]').split(',')
 
 # CSRF Settings
-CSRF_TRUSTED_ORIGINS = ['https://*']
-CSRF_COOKIE_SECURE = True
-CSRF_COOKIE_HTTPONLY = True
-CSRF_USE_SESSIONS = True
-CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_TRUSTED_ORIGINS = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', 'http://localhost,http://127.0.0.1,https://localhost').split(',')
+CSRF_COOKIE_SECURE = os.environ.get('DJANGO_CSRF_COOKIE_SECURE', 'False').lower() in ['1', 'true', 'yes']
+CSRF_COOKIE_HTTPONLY = os.environ.get('DJANGO_CSRF_COOKIE_HTTPONLY', 'True').lower() in ['1', 'true', 'yes']
+CSRF_USE_SESSIONS = os.environ.get('DJANGO_CSRF_USE_SESSIONS', 'True').lower() in ['1', 'true', 'yes']
+CSRF_COOKIE_SAMESITE = os.environ.get('DJANGO_CSRF_COOKIE_SAMESITE', 'Lax')
 
 # Session Settings
-SESSION_COOKIE_SECURE = True
-SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = os.environ.get('DJANGO_SESSION_COOKIE_SECURE', 'False').lower() in ['1', 'true', 'yes']
+SESSION_COOKIE_HTTPONLY = os.environ.get('DJANGO_SESSION_COOKIE_HTTPONLY', 'True').lower() in ['1', 'true', 'yes']
+SESSION_COOKIE_SAMESITE = os.environ.get('DJANGO_SESSION_COOKIE_SAMESITE', 'Lax')
 
 # Application definition
 

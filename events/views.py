@@ -11,6 +11,7 @@ from .forms import ConventionForm, ConventionDayForm, PanelForm, PanelHostForm, 
 import icalendar
 from django.utils import timezone
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Prefetch
 import csv
 import math
@@ -675,10 +676,28 @@ def save_room_ajax(request):
     }, status=400)
 
 @login_required
+@user_passes_test(is_admin)
+def manage_convention_items(request, pk):
+    """Admin page to manage Rooms, Hosts, and Tags for a convention."""
+    convention = get_object_or_404(Convention, pk=pk)
+    
+    rooms = Room.objects.filter(convention=convention).order_by('name')
+    hosts = PanelHost.objects.filter(panels__convention_day__convention=convention).distinct().order_by('name')
+    tags = Tag.objects.filter(panels__convention_day__convention=convention).distinct().order_by('name')
+    
+    return render(request, 'events/manage_convention_items.html', {
+        'convention': convention,
+        'rooms': rooms,
+        'hosts': hosts,
+        'tags': tags,
+        'current_convention_name': convention.name,
+    })
+
+
+@login_required
+@user_passes_test(is_admin)
 def toggle_cancelled(request, pk):
     """Toggle the cancelled status of a panel."""
-    if not request.user.is_staff:
-        return JsonResponse({'error': 'Permission denied'}, status=403)
     
     try:
         panel = get_object_or_404(Panel, pk=pk)
@@ -917,11 +936,11 @@ def import_panels_csv(request, convention_pk):
         if form.is_valid():
             csv_file = form.cleaned_data['csv_file']
             convention = form.cleaned_data['convention']
-            
-            # Read the CSV file
+
+            # Read the CSV file and parse
             decoded_file = csv_file.read().decode('utf-8').splitlines()
             reader = csv.DictReader(decoded_file)
-            
+
             # Map of possible column names to their canonical form
             column_mapping = {
                 'title': ['title', 'Title'],
@@ -933,7 +952,7 @@ def import_panels_csv(request, convention_pk):
                 'tags': ['tags', 'Tags'],
                 'hosts': ['hosts', 'Hosts']
             }
-            
+
             # Create a mapping of actual column names to canonical names
             actual_to_canonical = {}
             for canonical, possible_names in column_mapping.items():
@@ -941,11 +960,11 @@ def import_panels_csv(request, convention_pk):
                     if name in reader.fieldnames:
                         actual_to_canonical[name] = canonical
                         break
-            
+
             # Check for missing required columns
             required_columns = ['title', 'description', 'date', 'start_time', 'end_time', 'room']
             missing_columns = [col for col in required_columns if col not in actual_to_canonical.values()]
-            
+
             if missing_columns:
                 messages.error(request, f"Missing required columns in CSV file: {', '.join(missing_columns)}")
                 messages.info(request, "Required columns are: Title, Description, Date, Start Time, End Time, Room")
@@ -955,125 +974,122 @@ def import_panels_csv(request, convention_pk):
                     'convention': convention,
                     'current_convention_name': convention.name
                 })
-            
+
             success_count = 0
             error_count = 0
             errors = []
-            
+
             # Define possible date formats
             date_formats = ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%Y/%m/%d']
-            
+
             for row in reader:
-                try:
-                    # Debug logging for date field
-                    print(f"Processing row {reader.line_num}")
-                    
-                    # Map the row data to canonical column names
-                    mapped_row = {}
-                    for actual_name, value in row.items():
-                        if actual_name in actual_to_canonical:
-                            mapped_row[actual_to_canonical[actual_name]] = value
-                    
-                    print(f"Raw date value: '{mapped_row.get('date', '')}'")
-                    
-                    # Clean the date value
-                    date_str = mapped_row['date'].strip()
-                    if not date_str:
-                        raise ValueError("Empty date value")
-                    
-                    # Try different date formats
-                    date = None
-                    for date_format in date_formats:
+                with transaction.atomic():
+                    try:
+                        # Map the row data to canonical column names
+                        mapped_row = {}
+                        for actual_name, value in row.items():
+                            if actual_name in actual_to_canonical:
+                                mapped_row[actual_to_canonical[actual_name]] = value
+
+                        # Clean and validate date value
+                        date_str = mapped_row.get('date', '').strip()
+                        if not date_str:
+                            raise ValueError("Empty date value")
+
+                        parsed_date = None
+                        for date_format in date_formats:
+                            try:
+                                parsed_date = datetime.strptime(date_str, date_format).date()
+                                break
+                            except ValueError:
+                                continue
+
+                        if parsed_date is None:
+                            raise ValueError(
+                                f"Invalid date format: '{date_str}'. Supported formats are: YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY, YYYY/MM/DD"
+                            )
+
+                        # Parse times
                         try:
-                            date = datetime.strptime(date_str, date_format).date()
-                            print(f"Successfully parsed date '{date_str}' using format '{date_format}'")
-                            break
-                        except ValueError as e:
-                            print(f"Failed to parse date '{date_str}' using format '{date_format}': {str(e)}")
-                            continue
-                    
-                    if date is None:
-                        raise ValueError(f"Invalid date format: '{date_str}'. Supported formats are: YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY, YYYY/MM/DD")
-                    
-                    # Parse times
-                    try:
-                        start_time = datetime.strptime(mapped_row['start_time'].strip(), '%H:%M').time()
-                    except ValueError:
-                        raise ValueError(f"Invalid start time format: '{mapped_row['start_time']}'. Use HH:MM format (e.g., 14:30)")
-                    
-                    try:
-                        end_time = datetime.strptime(mapped_row['end_time'].strip(), '%H:%M').time()
-                    except ValueError:
-                        raise ValueError(f"Invalid end time format: '{mapped_row['end_time']}'. Use HH:MM format (e.g., 15:30)")
-                    
-                    # Validate required fields
-                    required_fields = ['title', 'description', 'room']
-                    for field in required_fields:
-                        if not mapped_row.get(field) or not mapped_row[field].strip():
-                            raise ValueError(f"Missing required field: {field}")
-                    
-                    # Get or create convention day
-                    convention_day, _ = ConventionDay.objects.get_or_create(
-                        convention=convention,
-                        date=date
-                    )
-                    
-                    # Get or create room
-                    room, _ = Room.objects.get_or_create(
-                        name=mapped_row['room'].strip(),
-                        convention=convention
-                    )
-                    
-                    # Create panel
-                    panel = Panel.objects.create(
-                        title=mapped_row['title'].strip(),
-                        description=mapped_row['description'].strip(),
-                        convention_day=convention_day,
-                        start_time=start_time,
-                        end_time=end_time,
-                        room=room
-                    )
-                    
-                    # Add tags
-                    if mapped_row.get('tags'):
-                        tag_names = [tag.strip() for tag in mapped_row['tags'].split(',')]
-                        for tag_name in tag_names:
-                            if tag_name:  # Only create tag if name is not empty
-                                tag, _ = Tag.objects.get_or_create(name=tag_name)
-                                panel.tags.add(tag)
-                    
-                    # Add hosts
-                    if mapped_row.get('hosts'):
-                        host_names = [host.strip() for host in mapped_row['hosts'].split(',')]
-                        for index, host_name in enumerate(host_names):
-                            if host_name:  # Only create host if name is not empty
-                                host, _ = PanelHost.objects.get_or_create(name=host_name)
-                                panel.host.add(host)
-                                PanelHostOrder.objects.create(
-                                    panel=panel,
-                                    host=host,
-                                    priority=index
-                                )
-                    
-                    success_count += 1
-                    
-                except Exception as e:
-                    error_count += 1
-                    error_msg = f"Error in row {reader.line_num}: {str(e)}"
-                    print(error_msg)  # Debug logging
-                    errors.append(error_msg)
-            
+                            start_time = datetime.strptime(mapped_row.get('start_time', '').strip(), '%H:%M').time()
+                        except ValueError:
+                            raise ValueError(
+                                f"Invalid start time format: '{mapped_row.get('start_time', '')}'. Use HH:MM format (e.g., 14:30)"
+                            )
+
+                        try:
+                            end_time = datetime.strptime(mapped_row.get('end_time', '').strip(), '%H:%M').time()
+                        except ValueError:
+                            raise ValueError(
+                                f"Invalid end time format: '{mapped_row.get('end_time', '')}'. Use HH:MM format (e.g., 15:30)"
+                            )
+
+                        # Validate required text fields
+                        for required_field in ['title', 'description', 'room']:
+                            if not mapped_row.get(required_field) or not mapped_row[required_field].strip():
+                                raise ValueError(f"Missing required field: {required_field}")
+
+                        # Get or create convention day
+                        convention_day, _ = ConventionDay.objects.get_or_create(
+                            convention=convention,
+                            date=parsed_date
+                        )
+
+                        # Get or create room
+                        room, _ = Room.objects.get_or_create(
+                            name=mapped_row['room'].strip(),
+                            convention=convention
+                        )
+
+                        # Create panel
+                        panel = Panel.objects.create(
+                            title=mapped_row['title'].strip(),
+                            description=mapped_row['description'].strip(),
+                            convention_day=convention_day,
+                            start_time=start_time,
+                            end_time=end_time,
+                            room=room
+                        )
+
+                        # Add tags
+                        if mapped_row.get('tags'):
+                            tag_names = [tag.strip() for tag in mapped_row['tags'].split(',')]
+                            for tag_name in tag_names:
+                                if tag_name:
+                                    tag, _ = Tag.objects.get_or_create(name=tag_name)
+                                    panel.tags.add(tag)
+
+                        # Add hosts
+                        if mapped_row.get('hosts'):
+                            host_names = [host.strip() for host in mapped_row['hosts'].split(',')]
+                            for index, host_name in enumerate(host_names):
+                                if host_name:
+                                    host, _ = PanelHost.objects.get_or_create(name=host_name)
+                                    panel.host.add(host)
+                                    PanelHostOrder.objects.update_or_create(
+                                        panel=panel,
+                                        host=host,
+                                        defaults={'priority': index}
+                                    )
+
+                        success_count += 1
+
+                    except Exception as e:
+                        transaction.set_rollback(True)
+                        error_count += 1
+                        errors.append(f"Error in row {reader.line_num}: {str(e)}")
+
             if success_count > 0:
                 messages.success(request, f'Successfully imported {success_count} panels.')
             if error_count > 0:
                 messages.error(request, f'Failed to import {error_count} panels. See details below.')
                 for error in errors:
                     messages.error(request, error)
-            
+
             return redirect('events:convention_detail', pk=convention.pk)
     else:
         form = CSVImportForm(initial={'convention': convention})
-    
+
     return render(request, 'events/import_panels.html', {
         'form': form,
         'convention': convention,
