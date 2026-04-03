@@ -291,6 +291,9 @@ window.addEventListener('load', function() {
                 if (hasVisiblePanels) {
                     timeRow.style.removeProperty('display');
                     timeRow.classList.remove('d-none');
+                    if (isWebkitSafari) {
+                        timeRow.style.setProperty('display', 'block', 'important');
+                    }
                 } else {
                     timeRow.style.setProperty('display', 'none', 'important');
                     timeRow.classList.add('d-none');
@@ -392,7 +395,23 @@ window.addEventListener('load', function() {
         const daySchedules = document.querySelectorAll('.day-schedule');
         const dayGrids = document.querySelectorAll('.day-grid');
 
+        const isWebkitSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        if (isWebkitSafari) {
+            document.documentElement.classList.add('safari-webkit');
+            console.info('Safari/WebKit patch enabled');
+        }
+
         let currentDayIndex = localStorage.getItem('conventionDayIndex') || 'all';
+        currentDayIndex = normalizeDayIndex(currentDayIndex);
+
+        function normalizeDayIndex(rawValue) {
+            if (!rawValue || rawValue === 'all') return 'all';
+            const parsed = parseInt(rawValue, 10);
+            if (Number.isNaN(parsed) || parsed < 0 || parsed >= daySchedules.length) {
+                return 'all';
+            }
+            return String(parsed);
+        }
 
         function setActiveDayButton(selectedValue) {
             dayButtons.forEach(button => {
@@ -403,31 +422,55 @@ window.addEventListener('load', function() {
         function updateDayNavigation(selectedValue = currentDayIndex) {
             if (!daySchedules.length) return;
 
-            const value = selectedValue || 'all';
+            const value = normalizeDayIndex(selectedValue);
 
             if (value === 'all') {
                 daySchedules.forEach(schedule => {
                     schedule.classList.remove('d-none', 'day-filter-hidden');
+                    if (isWebkitSafari) {
+                        schedule.style.display = 'block';
+                    }
                     loadHostImages(schedule);
                 });
-                dayGrids.forEach(grid => grid.classList.remove('d-none', 'day-filter-hidden'));
+                dayGrids.forEach(grid => {
+                    grid.classList.remove('d-none', 'day-filter-hidden');
+                    if (isWebkitSafari) {
+                        grid.style.display = 'block';
+                    }
+                });
             } else {
                 daySchedules.forEach((schedule, index) => {
                     const isSelected = index === parseInt(value, 10);
                     schedule.classList.toggle('d-none', !isSelected);
                     schedule.classList.toggle('day-filter-hidden', !isSelected);
+                    if (isWebkitSafari) {
+                        schedule.style.display = isSelected ? 'block' : 'none';
+                    }
                     if (isSelected) loadHostImages(schedule);
                 });
                 dayGrids.forEach((grid, index) => {
                     const isSelected = index === parseInt(value, 10);
                     grid.classList.toggle('d-none', !isSelected);
                     grid.classList.toggle('day-filter-hidden', !isSelected);
+                    if (isWebkitSafari) {
+                        grid.style.display = isSelected ? 'block' : 'none';
+                    }
                 });
             }
 
             setActiveDayButton(value);
             localStorage.setItem('conventionDayIndex', value);
             updateTimeSlotsVisibility();
+
+            if (isWebkitSafari) {
+                const visibleDay = document.querySelector('.day-schedule:not(.d-none)');
+                if (!visibleDay && daySchedules.length) {
+                    const fallbackDay = daySchedules[0];
+                    fallbackDay.classList.remove('d-none', 'day-filter-hidden');
+                    fallbackDay.style.setProperty('display', 'block', 'important');
+                    setActiveDayButton(daySchedules[0].dataset.dayIndex || '0');
+                }
+            }
         }
 
         dayButtons.forEach(button => {
@@ -497,11 +540,19 @@ window.addEventListener('load', function() {
 
                 panel.classList.toggle('hidden', !shouldShow);
                 if (shouldShow) {
-                    panel.style.setProperty('display', 'block', 'important');
                     panel.classList.remove('d-none');
+                    if (isWebkitSafari) {
+                        panel.style.setProperty('display', 'block', 'important');
+                    } else {
+                        panel.style.removeProperty('display');
+                    }
                 } else {
-                    panel.style.setProperty('display', 'none', 'important');
                     panel.classList.add('d-none');
+                    if (isWebkitSafari) {
+                        panel.style.setProperty('display', 'none', 'important');
+                    } else {
+                        panel.style.setProperty('display', 'none', 'important');
+                    }
                 }
 
                 if (panel.classList.contains('grid-cell-card')) {
@@ -2100,6 +2151,23 @@ html[data-bs-theme="light"] .text-primary {
 	height: 100% !important;
 	border-radius: 50% !important;
 	object-fit: cover !important;
+}
+
+html.safari-webkit .day-schedule:not(.d-none),
+html.safari-webkit .panel-card:not(.d-none),
+html.safari-webkit .grid-cell-card:not(.d-none),
+html.safari-webkit .timeline-row:not(.d-none),
+html.safari-webkit .time-content:not(.d-none) {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+html.safari-webkit .day-schedule.d-none,
+html.safari-webkit .timeline-row.d-none,
+html.safari-webkit .panel-card.d-none,
+html.safari-webkit .grid-cell-card.d-none {
+    display: none !important;
 }
 
 /* Event card styles */
