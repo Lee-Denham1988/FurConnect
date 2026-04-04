@@ -585,7 +585,12 @@
 
     {% block extra_js %}{% endblock %}
 
-    <!-- Theme Switcher JS -->
+    <!-- Floating Theme Switcher -->
+    <div class="floating-theme-switch">
+        <button id="page-theme-btn" class="btn btn-outline-primary theme-switch-modern" aria-label="Switch to dark theme">
+            <span class="theme-btn-icon">☀</span>
+        </button>
+    </div>
     <script>
         // Failsafe: Make page visible if not visible after a timeout
         document.addEventListener('DOMContentLoaded', function() {
