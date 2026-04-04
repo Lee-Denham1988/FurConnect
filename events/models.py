@@ -13,6 +13,7 @@ class Convention(models.Model):
     end_date = models.DateField()
     location = models.CharField(max_length=200, blank=True, null=True)
     banner_image = models.TextField(blank=True, null=True)
+    enable_schedule_pdf_export = models.BooleanField(default=False, help_text="Enable A3 PDF export of the full schedule")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

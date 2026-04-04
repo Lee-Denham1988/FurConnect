@@ -20,15 +20,19 @@
     <style>
         :root {
             --transition-speed: 0.3s;
-            --primary-purple: #6200ea;
-            --primary-purple-light: #7c4dff;
-            --primary-purple-dark: #3700b3;
-            --bs-table-hover-bg: rgba(255, 127, 0, 0.35);
+            --primary-gold: #f8b820;
+            --primary-gold-light: #ffc940;
+            --primary-gold-dark: #d9a00c;
+            --primary-red: #e72060;
+            --primary-red-light: #ff3a6d;
+            --primary-red-dark: #c91b4d;
+            --primary-white: #ffffff;
+            --bs-table-hover-bg: rgba(248, 184, 32, 0.15);
             --fc-star: #000;
         }
 
         html[data-bs-theme="dark"] {
-            --bs-table-hover-bg: rgba(255, 127, 0, 0.35);
+            --bs-table-hover-bg: rgba(248, 184, 32, 0.25);
             --fc-star: #fff;
         }
 
@@ -42,6 +46,13 @@
             transition: background-color var(--transition-speed), color var(--transition-speed);
             visibility: hidden;
             opacity: 0;
+            background-color: #ffffff !important;
+            color: #333333 !important;
+        }
+
+        html[data-bs-theme="dark"] body {
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
         }
 
         body.visible {
@@ -51,17 +62,25 @@
         }
 
         .navbar {
-            background: linear-gradient(135deg, var(--primary-purple), var(--primary-purple-dark)) !important;
+            background: var(--primary-gold) !important;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
+        html[data-bs-theme="dark"] .navbar {
+            background: var(--primary-red) !important;
+        }
+
         .navbar-brand {
-            color: white !important;
+            color: #000 !important;
             font-weight: 600;
             font-size: 1.5rem;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+        }
+
+        html[data-bs-theme="dark"] .navbar-brand {
+            color: #fff !important;
         }
 
         .navbar-brand .material-icons {
@@ -70,7 +89,7 @@
         }
 
         .nav-link {
-            color: rgba(255, 255, 255, 0.9) !important;
+            color: rgba(0, 0, 0, 0.9) !important;
             font-weight: 500;
             padding: 0.5rem 1rem !important;
             border-radius: 0.5rem;
@@ -81,7 +100,16 @@
         }
 
         .nav-link:hover {
-            color: white !important;
+            color: #000 !important;
+            background-color: rgba(0, 0, 0, 0.1);
+        }
+
+        html[data-bs-theme="dark"] .nav-link {
+            color: rgba(255, 255, 255, 0.9) !important;
+        }
+
+        html[data-bs-theme="dark"] .nav-link:hover {
+            color: #fff !important;
             background-color: rgba(255, 255, 255, 0.1);
         }
 
@@ -103,10 +131,14 @@
         }
 
         .user-info {
-            color: white;
+            color: #000;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+        }
+
+        html[data-bs-theme="dark"] .user-info {
+            color: #fff;
         }
 
         .user-info .material-icons {
@@ -154,21 +186,22 @@
         }
 
         [data-bs-theme="dark"] .navbar {
-            background: linear-gradient(135deg, var(--primary-purple-dark), #1a1a1a) !important;
+            background: var(--primary-red) !important;
         }
 
         [data-bs-theme="dark"] .card {
-            background-color: #2c3034;
-            border-color: #373b3e;
+            background-color: #ffffff;
+            border-color: #e0e0e0;
+            color: #333333;
         }
 
         [data-bs-theme="dark"] .btn-outline-primary {
-            color: var(--primary-purple-light);
-            border-color: var(--primary-purple-light);
+            color: var(--primary-red);
+            border-color: var(--primary-red);
         }
 
         [data-bs-theme="dark"] .btn-outline-primary:hover {
-            background-color: var(--primary-purple-light);
+            background-color: var(--primary-red);
             color: #fff;
         }
 
@@ -184,10 +217,10 @@
             padding: 0.65rem 1.1rem !important;
             border-radius: 0.55rem !important;
             transition: all 0.16s ease !important;
-            color: #fff !important;
-            background: linear-gradient(135deg, var(--primary-purple), var(--primary-purple-dark)) !important;
-            border: 1px solid rgba(255, 255, 255, 0.24) !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.26) !important;
+            color: #ffffff !important;
+            background: var(--primary-red) !important;
+            border: 1px solid rgba(0, 0, 0, 0.1) !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
             font-weight: 700 !important;
             font-size: 0.95rem !important;
             display: inline-flex !important;
@@ -202,8 +235,8 @@
         .theme-switch:hover,
         .theme-switch-modern:hover {
             transform: translateY(-1px) !important;
-            box-shadow: 0 6px 20px rgba(10, 10, 10, 0.32) !important;
-            background: linear-gradient(135deg, #6600ff, #5a00d7) !important;
+            box-shadow: 0 6px 20px rgba(10, 10, 10, 0.25) !important;
+            background: var(--primary-gold) !important;
         }
         .theme-switch .icon-sun,
         .theme-switch .icon-moon,
@@ -227,13 +260,13 @@
         }
 
         .btn-outline-primary {
-            color: white;
-            border-color: white;
+            color: var(--primary-red);
+            border-color: var(--primary-red);
         }
 
         .btn-outline-primary:hover {
-            background-color: white;
-            color: var(--primary-purple);
+            background-color: var(--primary-red);
+            color: #fff;
         }
 
         .floating-theme-switch {
@@ -282,11 +315,11 @@
         }
 
         input:checked + .slider {
-            background-color: var(--primary-purple);
+            background-color: var(--primary-red);
         }
 
         input:focus + .slider {
-            box-shadow: 0 0 1px var(--primary-purple);
+            box-shadow: 0 0 1px var(--primary-red);
         }
 
         input:checked + .slider:before {
@@ -554,43 +587,51 @@
 
     <!-- Theme Switcher JS -->
     <script>
+        // Failsafe: Make page visible if not visible after a timeout
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set a timeout to make page visible if load event hasn't fired yet
+            setTimeout(function() {
+                if (!document.body.classList.contains('visible')) {
+                    document.body.classList.add('visible');
+                }
+            }, 2000); // 2 second timeout
+            
                 // Grid/List View Toggle Logic
-                document.addEventListener('DOMContentLoaded', function() {
-                    const viewToggleBtn = document.getElementById('viewToggleBtn');
-                    const viewToggleIcon = document.getElementById('viewToggleIcon');
-                    const body = document.body;
-                    const gridTableContainer = document.querySelector('.grid-table-container');
-                    // Get saved view from localStorage
-                    let gridView = localStorage.getItem('eventGridView') === 'true';
+                const viewToggleBtn = document.getElementById('viewToggleBtn');
+                const viewToggleIcon = document.getElementById('viewToggleIcon');
+                const body = document.body;
+                const gridTableContainer = document.querySelector('.grid-table-container');
+                // Get saved view from localStorage
+                let gridView = localStorage.getItem('eventGridView') === 'true';
 
-                    function updateView() {
-                        if (gridView) {
-                            body.classList.add('grid-view');
-                            if (gridTableContainer) {
-                                gridTableContainer.classList.remove('d-none');
-                            }
-                            if (viewToggleIcon) {
-                                viewToggleIcon.textContent = 'view_list';
-                            }
-                        } else {
-                            body.classList.remove('grid-view');
-                            if (gridTableContainer) {
-                                gridTableContainer.classList.add('d-none');
-                            }
-                            if (viewToggleIcon) {
-                                viewToggleIcon.textContent = 'grid_view';
-                            }
+                function updateView() {
+                    if (gridView) {
+                        body.classList.add('grid-view');
+                        if (gridTableContainer) {
+                            gridTableContainer.classList.remove('d-none');
+                        }
+                        if (viewToggleIcon) {
+                            viewToggleIcon.textContent = 'view_list';
+                        }
+                    } else {
+                        body.classList.remove('grid-view');
+                        if (gridTableContainer) {
+                            gridTableContainer.classList.add('d-none');
+                        }
+                        if (viewToggleIcon) {
+                            viewToggleIcon.textContent = 'grid_view';
                         }
                     }
-                    updateView();
-                    if (viewToggleBtn) {
-                        viewToggleBtn.addEventListener('click', function() {
-                            gridView = !gridView;
-                            localStorage.setItem('eventGridView', gridView);
-                            updateView();
-                        });
-                    }
-                });
+                }
+                updateView();
+                if (viewToggleBtn) {
+                    viewToggleBtn.addEventListener('click', function() {
+                        gridView = !gridView;
+                        localStorage.setItem('eventGridView', gridView);
+                        updateView();
+                    });
+                }
+        });
         // Wait for all scripts to load
         window.addEventListener('load', function() {
             const themeCheckbox = document.getElementById('footer-theme-toggle'); // checkbox in footer (optional)
@@ -670,66 +711,78 @@
             }
 
             // --- Existing Login Modal Handling --- //
-            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
-            const loginForm = document.getElementById('loginForm');
-            const loginError = document.getElementById('loginError');
-            const loginSubmit = document.getElementById('loginSubmit');
+            try {
+                const loginModalElement = document.getElementById('loginModal');
+                const loginForm = document.getElementById('loginForm');
+                const loginError = document.getElementById('loginError');
+                const loginSubmit = document.getElementById('loginSubmit');
 
-            function handleLogin() {
-                if (!loginForm.checkValidity()) {
-                    loginForm.classList.add('was-validated');
-                    return;
-                }
+                // Only initialize login modal if all required elements exist
+                if (loginModalElement && loginForm && loginError && loginSubmit) {
+                    const loginModal = new bootstrap.Modal(loginModalElement);
 
-                const formData = new FormData(loginForm);
-                loginSubmit.disabled = true;
-                loginError.classList.add('d-none');
+                    function handleLogin() {
+                        if (!loginForm.checkValidity()) {
+                            loginForm.classList.add('was-validated');
+                            return;
+                        }
 
-                fetch('{% url "events:login" %}', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken')
-                    },
-                    credentials: 'same-origin'
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const nextPage = new URLSearchParams(window.location.search).get('next') || localStorage.getItem('nextPath') || window.location.pathname;
-                        localStorage.removeItem('nextPath');
-                        window.location.href = nextPage;
-                    } else {
-                        loginError.textContent = data.error;
-                        loginError.classList.remove('d-none');
-                        loginSubmit.disabled = false;
+                        const formData = new FormData(loginForm);
+                        loginSubmit.disabled = true;
+                        loginError.classList.add('d-none');
+
+                        fetch('{% url "events:login" %}', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            credentials: 'same-origin'
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                const nextPage = new URLSearchParams(window.location.search).get('next') || localStorage.getItem('nextPath') || window.location.pathname;
+                                localStorage.removeItem('nextPath');
+                                window.location.href = nextPage;
+                            } else {
+                                loginError.textContent = data.error;
+                                loginError.classList.remove('d-none');
+                                loginSubmit.disabled = false;
+                            }
+                        })
+                        .catch(error => {
+                            loginError.textContent = 'An error occurred. Please try again.';
+                            loginError.classList.remove('d-none');
+                            loginSubmit.disabled = false;
+                        });
                     }
-                })
-                .catch(error => {
-                    loginError.textContent = 'An error occurred. Please try again.';
-                    loginError.classList.remove('d-none');
-                    loginSubmit.disabled = false;
-                });
-            }
 
-            // Handle login form submission
-            loginSubmit.addEventListener('click', handleLogin);
+                    // Handle login form submission
+                    loginSubmit.addEventListener('click', handleLogin);
 
-            // Handle Enter key in password field
-            loginForm.querySelector('#password').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleLogin();
+                    // Handle Enter key in password field
+                    const passwordField = loginForm.querySelector('#password');
+                    if (passwordField) {
+                        passwordField.addEventListener('keypress', function(e) {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleLogin();
+                            }
+                        });
+                    }
+
+                    // Reset form when modal is closed
+                    loginModal._element.addEventListener('hidden.bs.modal', function() {
+                        loginForm.reset();
+                        loginForm.classList.remove('was-validated');
+                        loginError.classList.add('d-none');
+                        loginSubmit.disabled = false;
+                    });
                 }
-            });
-
-            // Reset form when modal is closed
-            loginModal._element.addEventListener('hidden.bs.modal', function() {
-                loginForm.reset();
-                loginForm.classList.remove('was-validated');
-                loginError.classList.add('d-none');
-                loginSubmit.disabled = false;
-            });
+            } catch (e) {
+                console.error('Error initializing login modal:', e);
+            }
 
             // show content after all core JS has initialized
             document.body.classList.add('visible');
@@ -770,10 +823,10 @@
     </script>
     <style>
       #sticky-footer {
-        background: var(--bs-body-bg);
+        background: var(--primary-red) !important;
         border-top: 1px solid rgba(255,255,255,0.1);
         box-shadow: inset 0 1px 0 rgba(0,0,0,0.05);
-        color: var(--bs-body-color);
+        color: #fff;
         font-size: 0.9rem;
         padding: 0.5rem 0;
         z-index: 99999999;
@@ -781,6 +834,15 @@
         left: 0;
         bottom: 0;
         width: 100%;
+      }
+
+      html[data-bs-theme="dark"] #sticky-footer {
+        background: var(--primary-gold) !important;
+        color: #000;
+      }
+
+      html[data-bs-theme="dark"] #sticky-footer .footer-version {
+        color: rgba(0, 0, 0, 0.7);
       }
 
       #sticky-footer .container {
@@ -796,17 +858,21 @@
         gap: 0.5rem;
       }
       #sticky-footer .footer-version {
-        color: var(--bs-secondary-color, #999);
+        color: rgba(255, 255, 255, 0.7) !important;
+      }
+
+      html[data-bs-theme="dark"] #sticky-footer .footer-version {
+        color: rgba(0, 0, 0, 0.7) !important;
       }
       .theme-switch-modern {
         display: inline-flex !important;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.12) !important;
-        border: 1px solid rgba(255, 255, 255, 0.16) !important;
+        background: rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 999px !important;
         padding: 0.25rem 0.35rem !important;
-        color: var(--bs-body-color, #222) !important;
+        color: #fff !important;
         opacity: 1 !important;
         visibility: visible !important;
         z-index: 9999 !important;

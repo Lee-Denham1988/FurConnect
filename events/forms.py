@@ -276,8 +276,20 @@ class CSVImportForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-select'})
     )
 
-    def clean_csv_file(self):
-        csv_file = self.cleaned_data['csv_file']
-        if not csv_file.name.endswith('.csv'):
-            raise forms.ValidationError('File must be a CSV file')
-        return csv_file 
+class XLSXImportForm(forms.Form):
+    xlsx_file = forms.FileField(
+        label='XLSX File',
+        help_text='Upload an Excel file (.xlsx) with panel information. Required columns: title, description, date, start_time, end_time, room, tags, hosts',
+        widget=forms.FileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xls'})
+    )
+    convention = forms.ModelChoiceField(
+        queryset=Convention.objects.all(),
+        label='Convention',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
+    def clean_xlsx_file(self):
+        xlsx_file = self.cleaned_data['xlsx_file']
+        if not (xlsx_file.name.endswith('.xlsx') or xlsx_file.name.endswith('.xls')):
+            raise forms.ValidationError('File must be an Excel file (.xlsx or .xls)')
+        return xlsx_file 

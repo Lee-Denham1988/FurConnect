@@ -1,78 +1,424 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+    /* Button styling */
+    .btn-primary {
+        background-color: var(--primary-red);
+        border-color: var(--primary-red);
+        color: #fff;
+    }
+    
+    .btn-primary:hover {
+        background-color: var(--primary-red-light);
+        border-color: var(--primary-red-light);
+        color: #fff;
+    }
+
+    .btn-success {
+        background-color: var(--primary-red);
+        border-color: var(--primary-red);
+        color: #fff;
+    }
+    
+    .btn-success:hover {
+        background-color: var(--primary-red-light);
+        border-color: var(--primary-red-light);
+        color: #fff;
+    }
+
+    .btn-outline-primary {
+        color: var(--primary-gold);
+        border-color: var(--primary-gold);
+    }
+    
+    .btn-outline-primary:hover {
+        background-color: var(--primary-gold);
+        border-color: var(--primary-gold);
+        color: #000;
+    }
+
+    .btn-check:checked + .btn-outline-primary {
+        background-color: var(--primary-gold);
+        border-color: var(--primary-gold);
+        color: #000;
+    }
+
+    /* Alert styling */
+    .alert-info {
+        background-color: rgba(231, 32, 96, 0.1);
+        border-color: var(--primary-red);
+        color: #333;
+    }
+
+    html[data-bs-theme="dark"] .alert-info {
+        background-color: rgba(231, 32, 96, 0.2);
+        color: #fff;
+    }
+
+    .alert-danger {
+        background-color: rgba(231, 32, 96, 0.1);
+        border-color: var(--primary-red);
+        color: #333;
+    }
+
+    html[data-bs-theme="dark"] .alert-danger {
+        background-color: rgba(231, 32, 96, 0.2);
+        color: #fff;
+    }
+
+    /* Table row styling */
+    .table-danger {
+        background-color: rgba(231, 32, 96, 0.08);
+    }
+
+    html[data-bs-theme="dark"] .table-danger {
+        background-color: rgba(231, 32, 96, 0.15);
+    }
+
+    .table-success {
+        background-color: rgba(248, 184, 32, 0.08);
+    }
+
+    html[data-bs-theme="dark"] .table-success {
+        background-color: rgba(248, 184, 32, 0.15);
+    }
+
+    /* Card header styling */
+    .card-header {
+        background-color: var(--primary-gold);
+        color: #000;
+        border-bottom: 3px solid var(--primary-red);
+    }
+
+    .card-header h2 {
+        color: #000;
+    }
+
+    /* Link styling */
+    a {
+        color: var(--primary-red);
+    }
+
+    a:hover {
+        color: var(--primary-red-light);
+    }
+
+    /* Form controls */
+    .form-control:focus {
+        border-color: var(--primary-gold);
+        box-shadow: 0 0 0 0.2rem rgba(248, 184, 32, 0.25);
+    }
+
+    .form-select:focus {
+        border-color: var(--primary-gold);
+        box-shadow: 0 0 0 0.2rem rgba(248, 184, 32, 0.25);
+    }
+
+    /* Text highlights */
+    .text-muted {
+        color: #666 !important;
+    }
+
+    html[data-bs-theme="dark"] .text-muted {
+        color: #ccc !important;
+    }
+
+    strong {
+        color: var(--primary-red);
+    }
+
+    h4, h5, h6 {
+        color: var(--primary-red);
+    }
+</style>
 <div class="container mt-4">
     <div class="row">
-        <div class="col-md-8 offset-md-2">
+        <div class="col-md-10 offset-md-1">
             <div class="card">
                 <div class="card-header">
-                    <h2 class="mb-0">Import Panels from CSV</h2>
+                    <h2 class="mb-0">Import Panels from File</h2>
                 </div>
                 <div class="card-body">
-                    <form method="post" enctype="multipart/form-data">
+                    <!-- File Type Selection -->
+                    <div class="mb-4">
+                        <h5>Select Import Format:</h5>
+                        <div class="btn-group" role="group" aria-label="Import format selection">
+                            <input type="radio" class="btn-check" name="format" id="csv-format" autocomplete="off" {% if selected_format != 'xlsx' %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="csv-format">CSV Import</label>
+
+                            <input type="radio" class="btn-check" name="format" id="xlsx-format" autocomplete="off" {% if selected_format == 'xlsx' %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="xlsx-format">Excel (XLSX) Import</label>
+                        </div>
+                    </div>
+
+                    <!-- Import Form -->
+                    <form id="import-form" method="post" enctype="multipart/form-data" action="{% url 'events:import_panels_csv' convention_pk=convention.pk %}">
                         {% csrf_token %}
-                        
-                        {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            {% for error in form.non_field_errors %}
-                                {{ error }}
-                            {% endfor %}
+
+                        <!-- CSV File Input -->
+                        <div id="csv-file-section" class="mb-3" style="{% if selected_format == 'xlsx' %}display:none;{% endif %}">
+                            <label for="id_csv_file" class="form-label">CSV File</label>
+                            <input type="file" name="csv_file" accept=".csv" class="form-control" id="id_csv_file" required>
+                            <div class="form-text">Upload a CSV file with panel information.</div>
                         </div>
-                        {% endif %}
-                        
-                        <div class="mb-3">
-                            <label for="{{ form.convention.id_for_label }}" class="form-label">{{ form.convention.label }}</label>
-                            {{ form.convention }}
-                            {% if form.convention.errors %}
-                            <div class="invalid-feedback d-block">
-                                {% for error in form.convention.errors %}
-                                    {{ error }}
-                                {% endfor %}
+
+                        <!-- XLSX File Input -->
+                        <div id="xlsx-file-section" class="mb-3" style="{% if selected_format != 'xlsx' %}display:none;{% endif %}">
+                            <label for="id_xlsx_file" class="form-label">Excel File</label>
+                            <input type="file" name="xlsx_file" accept=".xlsx,.xls" class="form-control" id="id_xlsx_file" required>
+                            <div class="form-text">Upload an Excel file (.xlsx or .xls) with panel information.</div>
+                        </div>
+
+                        <input type="hidden" name="convention" value="{{ convention.pk }}">
+
+                        <!-- Format Requirements -->
+                        <div id="csv-requirements" style="{% if selected_format == 'xlsx' %}display:none;{% endif %}">
+                            <div class="alert alert-info">
+                                <h5>CSV Format Requirements:</h5>
+                                <p>The CSV file should have the following columns (case-insensitive):</p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Column Name</th>
+                                                <th>Required</th>
+                                                <th>Description</th>
+                                                <th>Example</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="table-danger">
+                                                <td><strong>title</strong></td>
+                                                <td>Yes</td>
+                                                <td>Panel title</td>
+                                                <td>"Furry Art Workshop"</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>description</strong></td>
+                                                <td>Yes</td>
+                                                <td>Panel description</td>
+                                                <td>"Learn to draw furry art"</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>date</strong></td>
+                                                <td>Yes</td>
+                                                <td>Date in YYYY-MM-DD, MM/DD/YYYY, or DD/MM/YYYY format</td>
+                                                <td>2024-03-15</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>start_time</strong></td>
+                                                <td>Yes</td>
+                                                <td>Start time in HH:MM format (24-hour)</td>
+                                                <td>10:00</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>end_time</strong></td>
+                                                <td>Yes</td>
+                                                <td>End time in HH:MM format (24-hour)</td>
+                                                <td>12:00</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>room</strong></td>
+                                                <td>Yes</td>
+                                                <td>Room name</td>
+                                                <td>{% if existing_rooms %}"{{ existing_rooms|first }}"{% else %}"Main Hall"{% endif %}</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td><strong>tags</strong></td>
+                                                <td>No</td>
+                                                <td>Comma-separated list of tags</td>
+                                                <td>{% if existing_tags %}"{{ existing_tags|slice:":2"|join:", " }}"{% else %}"Art,Workshop"{% endif %}</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td><strong>hosts</strong></td>
+                                                <td>No</td>
+                                                <td>Comma-separated list of hosts</td>
+                                                <td>{% if existing_hosts %}"{{ existing_hosts|slice:":2"|join:", " }}"{% else %}"John Doe,Jane Smith"{% endif %}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p><strong>Note:</strong> Column headers are case-insensitive. Rooms, tags, and hosts will be created automatically if they don't exist.</p>
+                                
+                                {% if existing_rooms or existing_tags or existing_hosts %}
+                                <div class="mt-3">
+                                    <h6>Existing Data in Your Convention:</h6>
+                                    <div class="row">
+                                        {% if existing_rooms %}
+                                        <div class="col-md-4">
+                                            <strong>Rooms:</strong>
+                                            <div class="small text-muted">{{ existing_rooms|join:", " }}</div>
+                                        </div>
+                                        {% endif %}
+                                        {% if existing_tags %}
+                                        <div class="col-md-4">
+                                            <strong>Tags:</strong>
+                                            <div class="small text-muted">{{ existing_tags|join:", " }}</div>
+                                        </div>
+                                        {% endif %}
+                                        {% if existing_hosts %}
+                                        <div class="col-md-4">
+                                            <strong>Hosts:</strong>
+                                            <div class="small text-muted">{{ existing_hosts|join:", " }}</div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
                             </div>
-                            {% endif %}
                         </div>
-                        
-                        <div class="mb-3">
-                            <label for="{{ form.csv_file.id_for_label }}" class="form-label">{{ form.csv_file.label }}</label>
-                            {{ form.csv_file }}
-                            {% if form.csv_file.help_text %}
-                            <div class="form-text">{{ form.csv_file.help_text }}</div>
-                            {% endif %}
-                            {% if form.csv_file.errors %}
-                            <div class="invalid-feedback d-block">
-                                {% for error in form.csv_file.errors %}
-                                    {{ error }}
-                                {% endfor %}
+
+                        <div id="xlsx-requirements" style="{% if selected_format != 'xlsx' %}display:none;{% endif %}">
+                            <div class="alert alert-info">
+                                <h5>Excel Format Requirements:</h5>
+                                <p>The Excel file should have the following columns in the first row (case-insensitive):</p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Column Name</th>
+                                                <th>Required</th>
+                                                <th>Description</th>
+                                                <th>Example</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr class="table-danger">
+                                                <td><strong>title</strong></td>
+                                                <td>Yes</td>
+                                                <td>Panel title</td>
+                                                <td>Furry Art Workshop</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>description</strong></td>
+                                                <td>Yes</td>
+                                                <td>Panel description</td>
+                                                <td>Learn to draw furry art</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>date</strong></td>
+                                                <td>Yes</td>
+                                                <td>Date in YYYY-MM-DD, MM/DD/YYYY, or DD/MM/YYYY format</td>
+                                                <td>2024-03-15</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>start_time</strong></td>
+                                                <td>Yes</td>
+                                                <td>Start time in HH:MM format (24-hour)</td>
+                                                <td>10:00</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>end_time</strong></td>
+                                                <td>Yes</td>
+                                                <td>End time in HH:MM format (24-hour)</td>
+                                                <td>12:00</td>
+                                            </tr>
+                                            <tr class="table-danger">
+                                                <td><strong>room</strong></td>
+                                                <td>Yes</td>
+                                                <td>Room name</td>
+                                                <td>{% if existing_rooms %}{{ existing_rooms|first }}{% else %}Main Hall{% endif %}</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td><strong>tags</strong></td>
+                                                <td>No</td>
+                                                <td>Comma-separated list of tags</td>
+                                                <td>{% if existing_tags %}{{ existing_tags|slice:":2"|join:", " }}{% else %}Art,Workshop{% endif %}</td>
+                                            </tr>
+                                            <tr class="table-success">
+                                                <td><strong>hosts</strong></td>
+                                                <td>No</td>
+                                                <td>Comma-separated list of hosts</td>
+                                                <td>{% if existing_hosts %}{{ existing_hosts|slice:":2"|join:", " }}{% else %}John Doe,Jane Smith{% endif %}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <p><strong>Note:</strong> Column headers are case-insensitive. Data should start from row 2. Rooms, tags, and hosts will be created automatically if they don't exist.</p>
+                                
+                                {% if existing_rooms or existing_tags or existing_hosts %}
+                                <div class="mt-3">
+                                    <h6>Existing Data in Your Convention:</h6>
+                                    <div class="row">
+                                        {% if existing_rooms %}
+                                        <div class="col-md-4">
+                                            <strong>Rooms:</strong>
+                                            <div class="small text-muted">{{ existing_rooms|join:", " }}</div>
+                                        </div>
+                                        {% endif %}
+                                        {% if existing_tags %}
+                                        <div class="col-md-4">
+                                            <strong>Tags:</strong>
+                                            <div class="small text-muted">{{ existing_tags|join:", " }}</div>
+                                        </div>
+                                        {% endif %}
+                                        {% if existing_hosts %}
+                                        <div class="col-md-4">
+                                            <strong>Hosts:</strong>
+                                            <div class="small text-muted">{{ existing_hosts|join:", " }}</div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
                             </div>
-                            {% endif %}
                         </div>
-                        
-                        <div class="alert alert-info">
-                            <h5>CSV Format Requirements:</h5>
-                            <p>The CSV file should have the following columns:</p>
-                            <ul>
-                                <li><strong>title</strong> - Panel title</li>
-                                <li><strong>description</strong> - Panel description</li>
-                                <li><strong>date</strong> - Date in YYYY-MM-DD format</li>
-                                <li><strong>start_time</strong> - Start time in HH:MM format (24-hour)</li>
-                                <li><strong>end_time</strong> - End time in HH:MM format (24-hour)</li>
-                                <li><strong>room</strong> - Room name</li>
-                                <li><strong>tags</strong> - Comma-separated list of tags (optional)</li>
-                                <li><strong>hosts</strong> - Comma-separated list of hosts (optional)</li>
-                            </ul>
-                            <p>Example row:</p>
-                            <pre>title,description,date,start_time,end_time,room,tags,hosts
-"Furry Art Workshop","Learn to draw furry art",2024-03-15,10:00,12:00,"Main Hall","Art,Workshop","John Doe,Jane Smith"</pre>
-                        </div>
-                        
+
                         <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">Import Panels</button>
-                            <a href="{% url 'events:convention_detail' pk=convention.pk %}" class="btn btn-secondary">Cancel</a>
+                            <button id="submit-btn" type="submit" class="btn btn-primary">Import from {% if selected_format == 'xlsx' %}Excel{% else %}CSV{% endif %}</button>
                         </div>
                     </form>
+
+                    <hr>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'events:convention_detail' pk=convention.pk %}" class="btn btn-secondary">Back to Convention</a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function updateImportSections() {
+    const csvRadio = document.getElementById('csv-format');
+    const xlsxRadio = document.getElementById('xlsx-format');
+    const csvFileSection = document.getElementById('csv-file-section');
+    const xlsxFileSection = document.getElementById('xlsx-file-section');
+    const csvRequirements = document.getElementById('csv-requirements');
+    const xlsxRequirements = document.getElementById('xlsx-requirements');
+    const submitBtn = document.getElementById('submit-btn');
+    const importForm = document.getElementById('import-form');
+
+    if (!csvRadio || !xlsxRadio || !csvFileSection || !xlsxFileSection || !csvRequirements || !xlsxRequirements || !submitBtn || !importForm) {
+        return;
+    }
+
+    if (csvRadio.checked) {
+        // Show CSV
+        csvFileSection.style.display = 'block';
+        xlsxFileSection.style.display = 'none';
+        csvRequirements.style.display = 'block';
+        xlsxRequirements.style.display = 'none';
+        submitBtn.textContent = 'Import from CSV';
+        importForm.action = '{% url "events:import_panels_csv" convention_pk=convention.pk %}';
+    } else {
+        // Show XLSX
+        csvFileSection.style.display = 'none';
+        xlsxFileSection.style.display = 'block';
+        csvRequirements.style.display = 'none';
+        xlsxRequirements.style.display = 'block';
+        submitBtn.textContent = 'Import from Excel';
+        importForm.action = '{% url "events:import_panels_xlsx" convention_pk=convention.pk %}';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('input[name="format"]').forEach(radio => {
+        radio.addEventListener('change', updateImportSections);
+    });
+    updateImportSections();
+});
+</script>
 {% endblock %} 

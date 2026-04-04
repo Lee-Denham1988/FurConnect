@@ -7,7 +7,7 @@ from django.contrib.auth import logout, authenticate, login
 from django.http import JsonResponse, HttpResponse
 from django.http import Http404
 from .models import Convention, ConventionDay, Panel, Tag, PanelHost, Room, PanelTag, PanelHostOrder
-from .forms import ConventionForm, ConventionDayForm, PanelForm, PanelHostForm, TagForm, CSVImportForm
+from .forms import ConventionForm, ConventionDayForm, PanelForm, PanelHostForm, TagForm, CSVImportForm, XLSXImportForm
 import icalendar
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -15,6 +15,7 @@ from django.db import transaction
 from django.db.models import Prefetch
 import csv
 import math
+import openpyxl
 
 def logout_view(request):
     logout(request)
@@ -1090,11 +1091,218 @@ def import_panels_csv(request, convention_pk):
     else:
         form = CSVImportForm(initial={'convention': convention})
 
+    # Get existing data for examples
+    existing_rooms = list(Room.objects.filter(convention=convention).values_list('name', flat=True)[:5])
+    existing_tags = list(Tag.objects.all().values_list('name', flat=True)[:5])  # Get all tags, not just those used in panels
+    existing_hosts = list(PanelHost.objects.all().values_list('name', flat=True)[:5])  # Get all hosts, not just those used in panels
+
     return render(request, 'events/import_panels.html', {
         'form': form,
         'convention': convention,
-        'current_convention_name': convention.name
+        'current_convention_name': convention.name,
+        'existing_rooms': existing_rooms,
+        'existing_tags': existing_tags,
+        'existing_hosts': existing_hosts,
+        'selected_format': 'csv'
     })
+
+@login_required
+def import_panels_xlsx(request, convention_pk):
+    convention = get_object_or_404(Convention, pk=convention_pk)
+    
+    # Get existing data for examples upfront
+    existing_rooms = list(Room.objects.filter(convention=convention).values_list('name', flat=True)[:5])
+    existing_tags = list(Tag.objects.all().values_list('name', flat=True)[:5])
+    existing_hosts = list(PanelHost.objects.all().values_list('name', flat=True)[:5])
+    
+    context = {
+        'convention': convention,
+        'current_convention_name': convention.name,
+        'existing_rooms': existing_rooms,
+        'existing_tags': existing_tags,
+        'existing_hosts': existing_hosts
+    }
+    
+    if request.method == 'POST':
+        form = XLSXImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            xlsx_file = form.cleaned_data['xlsx_file']
+            convention = form.cleaned_data['convention']
+
+            # Load the workbook and get the first sheet
+            try:
+                wb = openpyxl.load_workbook(xlsx_file, data_only=True)
+                sheet = wb.active
+            except Exception as e:
+                messages.error(request, f"Error reading Excel file: {str(e)}")
+                context['form'] = form
+                return render(request, 'events/import_panels.html', context)
+
+            # Get headers from first row
+            headers = [cell.value for cell in sheet[1] if cell.value is not None]
+            if not headers:
+                messages.error(request, "Excel file appears to be empty or has no headers")
+                context['form'] = form
+                return render(request, 'events/import_panels.html', context)
+
+            # Map of possible column names to their canonical form
+            column_mapping = {
+                'title': ['title', 'Title', 'TITLE'],
+                'description': ['description', 'Description', 'DESCRIPTION'],
+                'date': ['date', 'Date', 'DATE'],
+                'start_time': ['start time', 'Start Time', 'start_time', 'START TIME', 'START_TIME'],
+                'end_time': ['end time', 'End Time', 'end_time', 'END TIME', 'END_TIME'],
+                'room': ['room', 'Room', 'ROOM'],
+                'tags': ['tags', 'Tags', 'TAGS'],
+                'hosts': ['hosts', 'Hosts', 'HOSTS']
+            }
+
+            # Create a mapping of actual column names to canonical names
+            actual_to_canonical = {}
+            for canonical, possible_names in column_mapping.items():
+                for name in possible_names:
+                    if name in headers:
+                        actual_to_canonical[name] = canonical
+                        break
+
+            # Check for missing required columns
+            required_columns = ['title', 'description', 'date', 'start_time', 'end_time', 'room']
+            missing_columns = [col for col in required_columns if col not in actual_to_canonical.values()]
+
+            if missing_columns:
+                messages.error(request, f"Missing required columns in Excel file: {', '.join(missing_columns)}")
+                messages.info(request, "Required columns are: Title, Description, Date, Start Time, End Time, Room")
+                messages.info(request, "Optional columns are: Tags, Hosts")
+                context['form'] = form
+                return render(request, 'events/import_panels.html', context)
+
+            success_count = 0
+            error_count = 0
+            errors = []
+
+            # Define possible date formats
+            date_formats = ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%Y/%m/%d']
+
+            # Process each row starting from row 2 (skip headers)
+            for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+                # Skip empty rows
+                if not any(cell for cell in row):
+                    continue
+
+                with transaction.atomic():
+                    try:
+                        # Create a dict from the row data
+                        row_data = {}
+                        for col_idx, cell_value in enumerate(row):
+                            if col_idx < len(headers):
+                                header = headers[col_idx]
+                                if header in actual_to_canonical:
+                                    canonical_name = actual_to_canonical[header]
+                                    # Convert cell value to string, handle None values
+                                    row_data[canonical_name] = str(cell_value).strip() if cell_value is not None else ''
+
+                        # Clean and validate date value
+                        date_str = row_data.get('date', '').strip()
+                        if not date_str:
+                            raise ValueError("Empty date value")
+
+                        parsed_date = None
+                        for date_format in date_formats:
+                            try:
+                                parsed_date = datetime.strptime(date_str, date_format).date()
+                                break
+                            except ValueError:
+                                continue
+
+                        if parsed_date is None:
+                            raise ValueError(
+                                f"Invalid date format: '{date_str}'. Supported formats are: YYYY-MM-DD, MM/DD/YYYY, DD/MM/YYYY, YYYY/MM/DD"
+                            )
+
+                        # Parse times
+                        try:
+                            start_time = datetime.strptime(row_data.get('start_time', '').strip(), '%H:%M').time()
+                        except ValueError:
+                            raise ValueError(
+                                f"Invalid start time format: '{row_data.get('start_time', '')}'. Use HH:MM format (e.g., 14:30)"
+                            )
+
+                        try:
+                            end_time = datetime.strptime(row_data.get('end_time', '').strip(), '%H:%M').time()
+                        except ValueError:
+                            raise ValueError(
+                                f"Invalid end time format: '{row_data.get('end_time', '')}'. Use HH:MM format (e.g., 15:30)"
+                            )
+
+                        # Validate required text fields
+                        for required_field in ['title', 'description', 'room']:
+                            if not row_data.get(required_field) or not row_data[required_field].strip():
+                                raise ValueError(f"Missing required field: {required_field}")
+
+                        # Get or create convention day
+                        convention_day, _ = ConventionDay.objects.get_or_create(
+                            convention=convention,
+                            date=parsed_date
+                        )
+
+                        # Get or create room
+                        room, _ = Room.objects.get_or_create(
+                            name=row_data['room'].strip(),
+                            convention=convention
+                        )
+
+                        # Create panel
+                        panel = Panel.objects.create(
+                            title=row_data['title'].strip(),
+                            description=row_data['description'].strip(),
+                            convention_day=convention_day,
+                            start_time=start_time,
+                            end_time=end_time,
+                            room=room
+                        )
+
+                        # Add tags
+                        if row_data.get('tags'):
+                            tag_names = [tag.strip() for tag in row_data['tags'].split(',')]
+                            for tag_name in tag_names:
+                                if tag_name:
+                                    tag, _ = Tag.objects.get_or_create(name=tag_name)
+                                    panel.tags.add(tag)
+
+                        # Add hosts
+                        if row_data.get('hosts'):
+                            host_names = [host.strip() for host in row_data['hosts'].split(',')]
+                            for index, host_name in enumerate(host_names):
+                                if host_name:
+                                    host, _ = PanelHost.objects.get_or_create(name=host_name)
+                                    panel.host.add(host)
+                                    PanelHostOrder.objects.update_or_create(
+                                        panel=panel,
+                                        host=host,
+                                        defaults={'priority': index}
+                                    )
+
+                        success_count += 1
+
+                    except Exception as e:
+                        transaction.set_rollback(True)
+                        error_count += 1
+                        errors.append(f"Error in row {row_idx}: {str(e)}")
+
+            if success_count > 0:
+                messages.success(request, f'Successfully imported {success_count} panels.')
+            if error_count > 0:
+                messages.error(request, f'Failed to import {error_count} panels. See details below.')
+                for error in errors:
+                    messages.error(request, error)
+
+            return redirect('events:convention_detail', pk=convention.pk)
+    else:
+        form = XLSXImportForm(initial={'convention': convention})
+    
+    context['form'] = form
+    context['selected_format'] = 'xlsx'
+    return render(request, 'events/import_panels.html', context)
 
 def export_panels_csv(request, convention_pk):
     convention = get_object_or_404(Convention, pk=convention_pk)

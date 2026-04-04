@@ -1,7 +1,7 @@
 from django.urls import path
 
 from . import views
-from .print_pdf import printable_schedule_pdf
+from .print_pdf import printable_schedule_pdf, full_schedule_pdf_a3
 
 app_name = 'events'
 
@@ -9,6 +9,7 @@ urlpatterns = [
     path('', views.schedule, name='schedule'),
     path('convention/<int:pk>/', views.convention_detail, name='convention_detail'),
     path('convention/<int:pk>/printable-schedule/', printable_schedule_pdf, name='printable_schedule_pdf'),
+    path('convention/<int:pk>/full-schedule-a3/', full_schedule_pdf_a3, name='full_schedule_pdf_a3'),
     path('convention/<int:pk>/calendar.ics', views.convention_ical_feed, name='convention_ical_feed'),
     path('convention/create/', views.convention_create, name='convention_create'),
     path('convention/<int:pk>/edit/', views.convention_edit, name='convention_edit'),
@@ -40,6 +41,7 @@ urlpatterns = [
     path('ajax/tags/reorder/<int:panel_id>/', views.reorder_tags_ajax, name='reorder_tags_ajax'),
     path('ajax/hosts/reorder/<int:panel_id>/', views.reorder_hosts_ajax, name='reorder_hosts_ajax'),
     path('convention/<int:convention_pk>/import-panels/', views.import_panels_csv, name='import_panels_csv'),
+    path('convention/<int:convention_pk>/import-panels-xlsx/', views.import_panels_xlsx, name='import_panels_xlsx'),
     path('convention/<int:convention_pk>/export-panels/', views.export_panels_csv, name='export_panels_csv'),
     path('privacy/', views.privacy_policy, name='privacy_policy'),
 ] 

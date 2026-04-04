@@ -43,10 +43,11 @@ class PanelTagAdmin(admin.ModelAdmin):
 
 @admin.register(Convention)
 class ConventionAdmin(admin.ModelAdmin):
-    list_display = ('name', 'start_date', 'end_date')
-    list_filter = ('start_date', 'end_date')
+    list_display = ('name', 'start_date', 'end_date', 'enable_schedule_pdf_export')
+    list_filter = ('start_date', 'end_date', 'enable_schedule_pdf_export')
     search_fields = ('name',)
     inlines = [ConventionDayInline]
+    fields = ('name', 'description', 'start_date', 'end_date', 'location', 'banner_image', 'enable_schedule_pdf_export')
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
