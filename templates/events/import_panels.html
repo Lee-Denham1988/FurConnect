@@ -177,6 +177,12 @@
                             <div class="alert alert-info">
                                 <h5>CSV Format Requirements:</h5>
                                 <p>The CSV file should have the following columns (case-insensitive):</p>
+                                <div class="mb-3">
+                                    <a href="{% url 'events:download_csv_template' convention_pk=convention.pk %}" class="btn btn-outline-primary">
+                                        <i class="material-icons">download</i>
+                                        Download CSV Template
+                                    </a>
+                                </div>
                                 <div class="table-responsive">
                                     <table class="table table-sm">
                                         <thead>
@@ -273,6 +279,12 @@
                             <div class="alert alert-info">
                                 <h5>Excel Format Requirements:</h5>
                                 <p>The Excel file should have the following columns in the first row (case-insensitive):</p>
+                                <div class="mb-3">
+                                    <a href="{% url 'events:download_xlsx_template' convention_pk=convention.pk %}" class="btn btn-outline-primary">
+                                        <i class="material-icons">download</i>
+                                        Download Excel Template
+                                    </a>
+                                </div>
                                 <div class="table-responsive">
                                     <table class="table table-sm">
                                         <thead>

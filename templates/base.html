@@ -929,6 +929,18 @@
           margin-top: 0.35rem;
         }
       }
+
+            /* Keep footer in normal flow so content is never covered. */
+            body {
+                padding-bottom: 0 !important;
+            }
+
+            #sticky-footer {
+                position: static !important;
+                left: auto !important;
+                bottom: auto !important;
+                width: 100% !important;
+            }
     </style>
 
     <footer id="sticky-footer" class="footer mt-auto">

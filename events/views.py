@@ -16,39 +16,48 @@ from django.db.models import Prefetch
 import csv
 import math
 import openpyxl
+import base64
+
+def is_admin(user):
+    return user.is_staff
+
+
+def schedule(request):
+    convention = Convention.objects.first()
+    if convention:
+        return redirect('events:convention_detail', pk=convention.pk)
+    return render(request, 'events/schedule.html', {
+        'conventions': [],
+        'current_convention_name': 'FurConnect',
+    })
+
+
+@require_GET
+def privacy_policy(request):
+    return render(request, 'events/privacy_policy.html')
+
 
 def logout_view(request):
     logout(request)
     messages.success(request, 'You have been successfully logged out.')
     return redirect('events:schedule')
 
-def is_admin(user):
-    return user.is_staff
-
-def schedule(request):
-    convention = Convention.objects.first()
-    if convention:
-        return redirect('events:convention_detail', pk=convention.pk)
-    return render(request, 'events/schedule.html', {'conventions': [], 'current_convention_name': 'FurConnect'})
-
-@require_GET
-def privacy_policy(request):
-    return render(request, 'events/privacy_policy.html')
+    # Get all hosts for the convention
 
 def convention_detail(request, pk):
     convention = get_object_or_404(Convention, pk=pk)
     current_convention_name = convention.name if convention else 'FurConnect'
-    
+
     # Get all days for the convention
     days = convention.days.all().order_by('date')
-    
+
     # Get all unique tags and rooms for the convention
     unique_tags = Tag.objects.filter(panels__convention_day__convention=convention).distinct().order_by('name')
     unique_rooms = Room.objects.filter(convention=convention).order_by('name')
-    
+
     # Get all hosts for the convention
     convention_hosts = PanelHost.objects.filter(panels__convention_day__convention=convention).distinct().order_by('name')
-    
+        
     # Initialize dictionary to store panels grouped by day and time
     panels_by_display_time = {}
     
@@ -211,25 +220,25 @@ def convention_detail(request, pk):
 
 @login_required
 def convention_create(request):
-    if request.method == 'POST':
-        form = ConventionForm(request.POST)
-        if form.is_valid():
-            convention = form.save()
-            messages.success(request, 'Convention created successfully!')
-            return redirect('events:schedule')
-    else:
-        form = ConventionForm()
-    
-    # Fetch the current convention name for the title, or use a default
-    current_convention = Convention.objects.first()
-    current_convention_name = current_convention.name if current_convention else 'FurConnect'
+        if request.method == 'POST':
+            form = ConventionForm(request.POST)
+            if form.is_valid():
+                convention = form.save()
+                messages.success(request, 'Convention created successfully!')
+                return redirect('events:schedule')
+        else:
+            form = ConventionForm()
+        
+        # Fetch the current convention name for the title, or use a default
+        current_convention = Convention.objects.first()
+        current_convention_name = current_convention.name if current_convention else 'FurConnect'
 
-    return render(request, 'events/convention_form.html', {
-        'form': form,
-        'action': 'Create',
-        'current_convention_name': current_convention_name
-        # 'states_by_country': STATES_BY_COUNTRY  # Commented out as states are handled by text input now
-    })
+        return render(request, 'events/convention_form.html', {
+            'form': form,
+            'action': 'Create',
+            'current_convention_name': current_convention_name
+            # 'states_by_country': STATES_BY_COUNTRY  # Commented out as states are handled by text input now
+        })
 
 @login_required
 def convention_edit(request, pk):
@@ -556,28 +565,37 @@ def tag_edit(request, name):
         messages.error(request, 'Tag not found.')
         return redirect('events:schedule')
 
-@login_required
-def host_edit(request, pk):
-    host = get_object_or_404(PanelHost, pk=pk)
-    if request.method == 'POST':
-        form = PanelHostForm(request.POST, request.FILES, instance=host)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Host updated successfully!')
-            # Redirect back to the convention detail page, or schedule if host has no panels
-            if host.panels.exists():
-                return redirect('events:convention_detail', pk=host.panels.first().convention_day.convention.pk)
-            else:
-                # If the host is not associated with any panels, redirect to the schedule
-                return redirect('events:schedule')
-    else:
-        form = PanelHostForm(instance=host)
-    
-    return render(request, 'events/host_form.html', {
-        'form': form,
-        'host': host,
-        'current_convention_name': 'FurConnect'
-    })
+    @login_required
+    def host_edit(request, pk):
+        host = get_object_or_404(PanelHost, pk=pk)
+        if request.method == 'POST':
+            form = PanelHostForm(request.POST, request.FILES, instance=host)
+            if form.is_valid():
+                # Handle image field
+                if form.cleaned_data.get('image') is None:
+                    host.image = None
+                elif 'image' in request.FILES:
+                    uploaded_file = request.FILES['image']
+                    file_content = uploaded_file.read()
+                    encoded = base64.b64encode(file_content).decode('utf-8')
+                    content_type = uploaded_file.content_type
+                    host.image = f"data:{content_type};base64,{encoded}"
+                form.save()
+                messages.success(request, 'Host updated successfully!')
+                # Redirect back to the convention detail page, or schedule if host has no panels
+                if host.panels.exists():
+                    return redirect('events:convention_detail', pk=host.panels.first().convention_day.convention.pk)
+                else:
+                    # If the host is not associated with any panels, redirect to the schedule
+                    return redirect('events:schedule')
+        else:
+            form = PanelHostForm(instance=host)
+        
+        return render(request, 'events/host_form.html', {
+            'form': form,
+            'host': host,
+            'current_convention_name': 'FurConnect'
+        })
 
 @login_required
 def delete_room_ajax(request, pk):
@@ -834,6 +852,83 @@ def get_all_hosts_ajax(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
 
+
+def get_hosts_batch_ajax(request):
+    """
+    AJAX view to get host details for a batch of host IDs.
+    Expects either:
+    - ids=1,2,3
+    - host_ids[]=1&host_ids[]=2
+    """
+    ids_param = request.GET.get('ids', '')
+    host_ids = request.GET.getlist('host_ids[]')
+    if not host_ids and ids_param:
+        host_ids = [value.strip() for value in ids_param.split(',') if value.strip()]
+
+    if not host_ids:
+        return JsonResponse({'error': 'ids or host_ids[] is required.'}, status=400)
+
+    try:
+        hosts = PanelHost.objects.filter(pk__in=host_ids).prefetch_related('panels__convention_day', 'panels__room', 'panels__tags')
+        hosts_data = []
+        for host in hosts:
+            panels_data = []
+            for panel in host.panels.all():
+                tag_color = panel.tags.first().color if panel.tags.exists() else '#ffffff'
+                panels_data.append({
+                    'id': panel.pk,
+                    'title': panel.title,
+                    'description': panel.description,
+                    'date': panel.convention_day.date.strftime('%Y-%m-%d') if panel.convention_day else '',
+                    'day_of_week': panel.convention_day.date.strftime('%A') if panel.convention_day and panel.convention_day.date else '',
+                    'start_time': panel.start_time.strftime('%H:%M'),
+                    'end_time': panel.end_time.strftime('%H:%M'),
+                    'room': panel.room.name if panel.room else 'TBD',
+                    'room_name': panel.room.name if panel.room else '',
+                    'tag_color': tag_color,
+                })
+
+            hosts_data.append({
+                'id': host.pk,
+                'name': host.name,
+                'profile_picture': host.image if host.image else host.get_initials_avatar(),
+                'panels': panels_data,
+                'panels_count': len(panels_data),
+            })
+
+        return JsonResponse({'hosts': hosts_data})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@login_required
+def host_edit(request, pk):
+    host = get_object_or_404(PanelHost, pk=pk)
+    if request.method == 'POST':
+        form = PanelHostForm(request.POST, request.FILES, instance=host)
+        if form.is_valid():
+            if form.cleaned_data.get('image') is None:
+                host.image = None
+            elif 'image' in request.FILES:
+                uploaded_file = request.FILES['image']
+                file_content = uploaded_file.read()
+                encoded = base64.b64encode(file_content).decode('utf-8')
+                content_type = uploaded_file.content_type
+                host.image = f"data:{content_type};base64,{encoded}"
+            form.save()
+            messages.success(request, 'Host updated successfully!')
+            if host.panels.exists():
+                return redirect('events:convention_detail', pk=host.panels.first().convention_day.convention.pk)
+            return redirect('events:schedule')
+    else:
+        form = PanelHostForm(instance=host)
+
+    return render(request, 'events/host_form.html', {
+        'form': form,
+        'host': host,
+        'current_convention_name': 'FurConnect',
+    })
+
 @login_required
 def get_all_rooms_ajax(request):
     """
@@ -1045,36 +1140,14 @@ def import_panels_csv(request, convention_pk):
                         # Create panel
                         panel = Panel.objects.create(
                             title=mapped_row['title'].strip(),
-                            description=mapped_row['description'].strip(),
+                            description=mapped_row.get('description', '').strip(),
                             convention_day=convention_day,
-                            start_time=start_time,
-                            end_time=end_time,
+                            start_time=parsed_start_time,
+                            end_time=parsed_end_time,
                             room=room
                         )
-
-                        # Add tags
-                        if mapped_row.get('tags'):
-                            tag_names = [tag.strip() for tag in mapped_row['tags'].split(',')]
-                            for tag_name in tag_names:
-                                if tag_name:
-                                    tag, _ = Tag.objects.get_or_create(name=tag_name)
-                                    panel.tags.add(tag)
-
-                        # Add hosts
-                        if mapped_row.get('hosts'):
-                            host_names = [host.strip() for host in mapped_row['hosts'].split(',')]
-                            for index, host_name in enumerate(host_names):
-                                if host_name:
-                                    host, _ = PanelHost.objects.get_or_create(name=host_name)
-                                    panel.host.add(host)
-                                    PanelHostOrder.objects.update_or_create(
-                                        panel=panel,
-                                        host=host,
-                                        defaults={'priority': index}
-                                    )
-
-                        success_count += 1
-
+                    except Exception as e:
+                                return JsonResponse({'error': str(e)}, status=400)
                     except Exception as e:
                         transaction.set_rollback(True)
                         error_count += 1
@@ -1414,40 +1487,196 @@ def convention_ical_feed(request, pk):
     return response
 
 # Batch host details AJAX endpoint
-@require_GET
-def get_hosts_batch_ajax(request):
-    """
-    AJAX view to get details for multiple PanelHosts by IDs (comma-separated in ?ids=).
-    Returns: { hosts: [ {id, name, profile_picture, panels, panels_count}, ... ] }
-    """
-    ids_param = request.GET.get('ids', '')
-    try:
-        ids = [int(i) for i in ids_param.split(',') if i.strip().isdigit()]
-        hosts = PanelHost.objects.filter(pk__in=ids)
-        hosts_data = []
-        for host in hosts:
-            panels = host.panels.all().select_related('convention_day', 'room').prefetch_related('tags')
-            panels_data = []
-            for panel in panels:
-                tag_color = panel.tags.first().color if panel.tags.exists() else '#ffffff'
-                panels_data.append({
-                    'id': panel.pk,
-                    'title': panel.title,
-                    'description': panel.description,
-                    'start_time': panel.start_time.strftime('%I:%M %p') if panel.start_time else '',
-                    'end_time': panel.end_time.strftime('%I:%M %p') if panel.end_time else '',
-                    'room_name': panel.room.name if panel.room else '',
-                    'tag_color': tag_color,
-                    'day_of_week': panel.convention_day.date.strftime('%A') if panel.convention_day and panel.convention_day.date else '',
-                })
-            panels_data.sort(key=lambda x: x.get('start_time', ''))
-            hosts_data.append({
-                'id': host.pk,
-                'name': host.name,
-                'profile_picture': host.image if host.image else host.get_initials_avatar(),
-                'panels': panels_data,
-                'panels_count': len(panels_data),
-            })
-        return JsonResponse({'hosts': hosts_data})
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+    @require_GET
+    def batch_host_details(request):
+            try:
+                host_ids = request.GET.getlist('host_ids[]')
+                if not host_ids:
+                    return JsonResponse({'error': 'No host IDs provided'}, status=400)
+
+                hosts = PanelHost.objects.filter(pk__in=host_ids).prefetch_related('panels')
+                hosts_data = []
+                for host in hosts:
+                    panels_data = []
+                    for panel in host.panels.all():
+                        panels_data.append({
+                            'id': panel.pk,
+                            'title': panel.title,
+                            'date': panel.convention_day.date.strftime('%Y-%m-%d'),
+                            'start_time': panel.start_time.strftime('%H:%M'),
+                            'end_time': panel.end_time.strftime('%H:%M'),
+                            'room': panel.room.name if panel.room else 'TBD'
+                        })
+                    hosts_data.append({
+                        'id': host.pk,
+                        'name': host.name,
+                        'image': host.image,
+                        'panels': panels_data,
+                        'panels_count': len(panels_data),
+                    })
+                return JsonResponse({'hosts': hosts_data})
+            except Exception as e:
+                return JsonResponse({'error': str(e)}, status=400)
+
+@login_required
+def download_csv_template(request, convention_pk):
+    convention = get_object_or_404(Convention, pk=convention_pk)
+    
+    # Create the HttpResponse object with CSV header
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{convention.name}_panels_template.csv"'
+    
+    # Create CSV writer
+    writer = csv.writer(response, quoting=csv.QUOTE_ALL, lineterminator='\n')
+    
+    # Write header row
+    writer.writerow([
+        'title',
+        'description', 
+        'date',
+        'start_time',
+        'end_time',
+        'room',
+        'tags',
+        'hosts'
+    ])
+    
+    # Get example data
+    existing_rooms = list(Room.objects.filter(convention=convention).values_list('name', flat=True)[:1]) or ['Main Hall']
+    existing_tags = list(Tag.objects.all().values_list('name', flat=True)[:2]) or ['Art', 'Workshop']
+    existing_hosts = list(PanelHost.objects.all().values_list('name', flat=True)[:2]) or ['John Doe', 'Jane Smith']
+    
+    # Write example row
+    writer.writerow([
+        'Furry Art Workshop',
+        'Learn to draw furry art',
+        '2024-03-15',
+        '10:00',
+        '12:00',
+        existing_rooms[0],
+        ', '.join(existing_tags),
+        ', '.join(existing_hosts)
+    ])
+    
+    return response
+
+@login_required
+def download_xlsx_template(request, convention_pk):
+    convention = get_object_or_404(Convention, pk=convention_pk)
+    
+    # Create workbook
+    wb = openpyxl.Workbook()
+    sheet = wb.active
+    sheet.title = 'Panels'
+    
+    # Write headers
+    headers = ['title', 'description', 'date', 'start_time', 'end_time', 'room', 'tags', 'hosts']
+    for col_num, header in enumerate(headers, 1):
+        sheet.cell(row=1, column=col_num, value=header)
+    
+    # Get example data
+    existing_rooms = list(Room.objects.filter(convention=convention).values_list('name', flat=True)[:1]) or ['Main Hall']
+    existing_tags = list(Tag.objects.all().values_list('name', flat=True)[:2]) or ['Art', 'Workshop']
+    existing_hosts = list(PanelHost.objects.all().values_list('name', flat=True)[:2]) or ['John Doe', 'Jane Smith']
+    
+    # Write example row
+    example_data = [
+        'Furry Art Workshop',
+        'Learn to draw furry art',
+        '2024-03-15',
+        '10:00',
+        '12:00',
+        existing_rooms[0],
+        ', '.join(existing_tags),
+        ', '.join(existing_hosts)
+    ]
+    for col_num, value in enumerate(example_data, 1):
+        sheet.cell(row=2, column=col_num, value=value)
+    
+    # Create response
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{convention.name}_panels_template.xlsx"'
+    
+    wb.save(response)
+    return response
+@login_required
+def download_csv_template(request, convention_pk):
+    convention = get_object_or_404(Convention, pk=convention_pk)
+    
+    # Create the HttpResponse object with CSV header
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{convention.name}_panels_template.csv"'
+    
+    # Create CSV writer
+    writer = csv.writer(response, quoting=csv.QUOTE_ALL, lineterminator='\n')
+    
+    # Write header row
+    writer.writerow([
+        'title',
+        'description', 
+        'date',
+        'start_time',
+        'end_time',
+        'room',
+        'tags',
+        'hosts'
+    ])
+    
+    # Get example data
+    existing_rooms = list(Room.objects.filter(convention=convention).values_list('name', flat=True)[:1]) or ['Main Hall']
+    existing_tags = list(Tag.objects.all().values_list('name', flat=True)[:2]) or ['Art', 'Workshop']
+    existing_hosts = list(PanelHost.objects.all().values_list('name', flat=True)[:2]) or ['John Doe', 'Jane Smith']
+    
+    # Write example row
+    writer.writerow([
+        'Furry Art Workshop',
+        'Learn to draw furry art',
+        '2024-03-15',
+        '10:00',
+        '12:00',
+        existing_rooms[0],
+        ', '.join(existing_tags),
+        ', '.join(existing_hosts)
+    ])
+    
+    return response
+
+@login_required
+def download_xlsx_template(request, convention_pk):
+    convention = get_object_or_404(Convention, pk=convention_pk)
+    
+    # Create workbook
+    wb = openpyxl.Workbook()
+    sheet = wb.active
+    sheet.title = 'Panels'
+    
+    # Write headers
+    headers = ['title', 'description', 'date', 'start_time', 'end_time', 'room', 'tags', 'hosts']
+    for col_num, header in enumerate(headers, 1):
+        sheet.cell(row=1, column=col_num, value=header)
+    
+    # Get example data
+    existing_rooms = list(Room.objects.filter(convention=convention).values_list('name', flat=True)[:1]) or ['Main Hall']
+    existing_tags = list(Tag.objects.all().values_list('name', flat=True)[:2]) or ['Art', 'Workshop']
+    existing_hosts = list(PanelHost.objects.all().values_list('name', flat=True)[:2]) or ['John Doe', 'Jane Smith']
+    
+    # Write example row
+    example_data = [
+        'Furry Art Workshop',
+        'Learn to draw furry art',
+        '2024-03-15',
+        '10:00',
+        '12:00',
+        existing_rooms[0],
+        ', '.join(existing_tags),
+        ', '.join(existing_hosts)
+    ]
+    for col_num, value in enumerate(example_data, 1):
+        sheet.cell(row=2, column=col_num, value=value)
+    
+    # Create response
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{convention.name}_panels_template.xlsx"'
+    
+    wb.save(response)
+    return response
