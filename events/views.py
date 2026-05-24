@@ -79,26 +79,34 @@ def convention_detail(request, pk):
 
     # Sort the days for displaying in the template
     sorted_display_days = sorted(panels_by_display_time.keys())
-    
+
     # Reconstruct days structure with panels grouped by display start time
     display_days_with_panels = []
     for day_date in sorted_display_days:
         day_obj = days.get(date=day_date)
+
+        # Create complete timeline with all half-hour slots from 00:00 to 23:30
+        # Generate all half-hour time slots for the full day
+        all_time_slots = []
+        current_time = time(0, 0)
+        for hour in range(24):
+            for minute in [0, 30]:
+                all_time_slots.append(time(hour, minute))
+
+        # Build timeline with all slots, adding panels where they exist
+        panels_by_time_full = []
+        for slot_time in all_time_slots:
+            time_slot_entry = {
+                'start_time': slot_time,
+                'panels': panels_by_display_time[day_date].get(slot_time, [])
+            }
+            panels_by_time_full.append(time_slot_entry)
+
         display_day = {
             'original_day_obj': day_obj,
-            'panels_by_time': []
+            'panels_by_time': panels_by_time_full
         }
-        
-        # Sort times for this day
-        sorted_times = sorted(panels_by_display_time[day_date].keys())
-        
-        # Add each time group to the day
-        for slot_time in sorted_times:
-            display_day['panels_by_time'].append({
-                'start_time': slot_time,
-                'panels': panels_by_display_time[day_date][slot_time]
-            })
-        
+
         display_days_with_panels.append(display_day)
 
     # Build a 2D grid matrix (hourly slots x rooms) for grid view, with rowspan for multi-hour panels
@@ -115,36 +123,10 @@ def convention_detail(request, pk):
 
         rooms_used = sorted(rooms_used, key=lambda r: r.name)
 
-        # Determine daily span from first booked event to last event (30-min grid)
+        # Always show full 24-hour grid from 00:00 to 23:30 (which ends at midnight)
         day_date = display_day['original_day_obj'].date
-
-        if panels_for_day:
-            min_start_time = min(panel.start_time for panel in panels_for_day)
-            max_end_time = max(panel.end_time for panel in panels_for_day)
-
-            start_dt = datetime.combine(day_date, min_start_time)
-            if start_dt.minute < 30:
-                start_dt = start_dt.replace(minute=0, second=0, microsecond=0)
-            else:
-                start_dt = start_dt.replace(minute=30, second=0, microsecond=0)
-
-            end_dt = datetime.combine(day_date, max_end_time)
-            if end_dt <= start_dt:
-                end_dt += timedelta(days=1)
-
-            if end_dt.minute == 0 and end_dt.second == 0 and end_dt.microsecond == 0:
-                pass
-            elif end_dt.minute <= 30:
-                end_dt = end_dt.replace(minute=30, second=0, microsecond=0)
-            else:
-                end_dt = (end_dt + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-
-            # Extend to at least one hour so there is room to draw
-            if end_dt <= start_dt + timedelta(hours=1):
-                end_dt = start_dt + timedelta(hours=1)
-        else:
-            start_dt = datetime.combine(day_date, time(0, 0))
-            end_dt = datetime.combine(day_date, time(23, 30)) + timedelta(minutes=30)
+        start_dt = datetime.combine(day_date, time(0, 0))
+        end_dt = datetime.combine(day_date, time(23, 30)) + timedelta(minutes=30)  # This equals midnight
 
         total_half_hours = int((end_dt - start_dt).total_seconds() // (30 * 60))
         time_slots = [start_dt + timedelta(minutes=30 * i) for i in range(total_half_hours)]
@@ -163,7 +145,8 @@ def convention_detail(request, pk):
             if slot_start < start_dt:
                 slot_start = start_dt
 
-            duration_minutes = (panel_end - panel_start).total_seconds() / 60.0
+            # Calculate duration from slot_start to panel_end (not panel_start to panel_end)
+            duration_minutes = (panel_end - slot_start).total_seconds() / 60.0
             rowspan = max(1, math.ceil(duration_minutes / 30.0))
 
             panel_map[(panel.room.id, slot_start)] = {
@@ -929,6 +912,267 @@ def reorder_hosts_ajax(request, panel_id):
     return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=400)
 
 @login_required
+def download_csv_template(request):
+    """Download a CSV template file for importing panels."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="panel_import_template.csv"'
+
+    writer = csv.writer(response)
+    # Write header row
+    writer.writerow(['title', 'description', 'date', 'start_time', 'end_time', 'room', 'tags', 'hosts'])
+    # Write example row
+    writer.writerow([
+        'Furry Art Workshop',
+        'Learn to draw furry art with professional artists',
+        '2024-03-15',
+        '10:00',
+        '12:00',
+        'Main Hall',
+        'Art,Workshop',
+        'John Doe,Jane Smith'
+    ])
+    # Write another example row
+    writer.writerow([
+        'Fursuit Dance Competition',
+        'Show off your moves in this exciting dance competition',
+        '2024-03-15',
+        '14:00',
+        '16:00',
+        'Grand Ballroom',
+        'Performance,Dance',
+        'DJ FurMix'
+    ])
+
+    return response
+
+@login_required
+def clear_all_panels(request, convention_pk):
+    """Clear all panels for a specific convention."""
+    convention = get_object_or_404(Convention, pk=convention_pk)
+
+    if request.method == 'POST':
+        # Delete all panels for this convention
+        deleted_count = Panel.objects.filter(convention_day__convention=convention).delete()[0]
+        messages.success(request, f'Successfully deleted {deleted_count} panels from {convention.name}.')
+        return redirect('events:import_panels_csv', convention_pk=convention_pk)
+
+    # If GET request, show confirmation page
+    panel_count = Panel.objects.filter(convention_day__convention=convention).count()
+    return render(request, 'events/confirm_clear_panels.html', {
+        'convention': convention,
+        'panel_count': panel_count,
+        'current_convention_name': convention.name
+    })
+
+@login_required
+def randomize_tag_colors(request):
+    """Randomize colors for all tags."""
+    import random
+
+    if request.method == 'POST':
+        tags = Tag.objects.all()
+        count = 0
+
+        for tag in tags:
+            # Generate a random vibrant color
+            hue = random.randint(0, 360)
+            saturation = random.randint(60, 90)
+            lightness = random.randint(40, 60)
+
+            # Convert HSL to RGB
+            import colorsys
+            r, g, b = colorsys.hls_to_rgb(hue/360.0, lightness/100.0, saturation/100.0)
+            color = f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
+
+            tag.color = color
+            tag.save()
+            count += 1
+
+        messages.success(request, f'Successfully randomized colors for {count} tags.')
+        return redirect(request.META.get('HTTP_REFERER', 'events:schedule'))
+
+    return redirect('events:schedule')
+
+# CSV Template Downloads
+@login_required
+@user_passes_test(is_admin)
+def download_rooms_template(request):
+    """Download a CSV template file for importing rooms."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="rooms_import_template.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['name'])
+    writer.writerow(['Main Hall'])
+    writer.writerow(['Panel Room 1'])
+    writer.writerow(['Grand Ballroom'])
+
+    return response
+
+@login_required
+@user_passes_test(is_admin)
+def download_hosts_template(request):
+    """Download a CSV template file for importing panel hosts."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="hosts_import_template.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['name'])
+    writer.writerow(['John Doe'])
+    writer.writerow(['Jane Smith'])
+    writer.writerow(['DJ FurMix'])
+
+    return response
+
+@login_required
+@user_passes_test(is_admin)
+def download_tags_template(request):
+    """Download a CSV template file for importing tags."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="tags_import_template.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['name', 'color'])
+    writer.writerow(['Art', '#FF6B6B'])
+    writer.writerow(['Workshop', '#4ECDC4'])
+    writer.writerow(['Performance', '#FFE66D'])
+    writer.writerow(['Gaming', '#95E1D3'])
+
+    return response
+
+# Bulk Import Functions
+@login_required
+@user_passes_test(is_admin)
+def import_rooms_csv(request, convention_pk):
+    """Import rooms from CSV file."""
+    convention = get_object_or_404(Convention, pk=convention_pk)
+
+    if request.method == 'POST' and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+
+        try:
+            decoded_file = csv_file.read().decode('utf-8').splitlines()
+            reader = csv.DictReader(decoded_file)
+
+            created_count = 0
+            updated_count = 0
+
+            with transaction.atomic():
+                for row in reader:
+                    name = row.get('name', '').strip()
+                    if not name:
+                        continue
+
+                    room, created = Room.objects.get_or_create(
+                        name=name,
+                        convention=convention
+                    )
+
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+
+            messages.success(
+                request,
+                f'Successfully imported rooms: {created_count} created, {updated_count} already existed.'
+            )
+        except Exception as e:
+            messages.error(request, f'Error importing rooms: {str(e)}')
+
+    return redirect('events:manage_convention_items', pk=convention_pk)
+
+@login_required
+@user_passes_test(is_admin)
+def import_hosts_csv(request, convention_pk):
+    """Import panel hosts from CSV file."""
+    convention = get_object_or_404(Convention, pk=convention_pk)
+
+    if request.method == 'POST' and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+
+        try:
+            decoded_file = csv_file.read().decode('utf-8').splitlines()
+            reader = csv.DictReader(decoded_file)
+
+            created_count = 0
+            updated_count = 0
+
+            with transaction.atomic():
+                for row in reader:
+                    name = row.get('name', '').strip()
+                    if not name:
+                        continue
+
+                    host, created = PanelHost.objects.get_or_create(
+                        name=name
+                    )
+
+                    if created:
+                        created_count += 1
+                    else:
+                        updated_count += 1
+
+            messages.success(
+                request,
+                f'Successfully imported hosts: {created_count} created, {updated_count} already existed.'
+            )
+        except Exception as e:
+            messages.error(request, f'Error importing hosts: {str(e)}')
+
+    return redirect('events:manage_convention_items', pk=convention_pk)
+
+@login_required
+@user_passes_test(is_admin)
+def import_tags_csv(request, convention_pk):
+    """Import tags from CSV file."""
+    convention = get_object_or_404(Convention, pk=convention_pk)
+
+    if request.method == 'POST' and request.FILES.get('csv_file'):
+        csv_file = request.FILES['csv_file']
+
+        try:
+            decoded_file = csv_file.read().decode('utf-8').splitlines()
+            reader = csv.DictReader(decoded_file)
+
+            created_count = 0
+            updated_count = 0
+
+            with transaction.atomic():
+                for row in reader:
+                    name = row.get('name', '').strip()
+                    color = row.get('color', '').strip()
+
+                    if not name:
+                        continue
+
+                    # Default color if not provided
+                    if not color:
+                        color = '#6c757d'
+
+                    tag, created = Tag.objects.get_or_create(
+                        name=name,
+                        defaults={'color': color}
+                    )
+
+                    if not created and color:
+                        # Update color if tag already exists
+                        tag.color = color
+                        tag.save()
+                        updated_count += 1
+                    elif created:
+                        created_count += 1
+
+            messages.success(
+                request,
+                f'Successfully imported tags: {created_count} created, {updated_count} updated.'
+            )
+        except Exception as e:
+            messages.error(request, f'Error importing tags: {str(e)}')
+
+    return redirect('events:manage_convention_items', pk=convention_pk)
+
+@login_required
 def import_panels_csv(request, convention_pk):
     convention = get_object_or_404(Convention, pk=convention_pk)
     if request.method == 'POST':
@@ -1040,6 +1284,24 @@ def import_panels_csv(request, convention_pk):
                             name=mapped_row['room'].strip(),
                             convention=convention
                         )
+
+                        # Check for overlapping panels in the same room
+                        overlapping_panels = Panel.objects.filter(
+                            convention_day=convention_day,
+                            room=room,
+                            start_time__lt=end_time,
+                            end_time__gt=start_time
+                        )
+
+                        if overlapping_panels.exists():
+                            conflicting_panel = overlapping_panels.first()
+                            raise ValueError(
+                                f"Time conflict detected: '{mapped_row['title'].strip()}' "
+                                f"({start_time.strftime('%H:%M')}-{end_time.strftime('%H:%M')}) "
+                                f"overlaps with '{conflicting_panel.title}' "
+                                f"({conflicting_panel.start_time.strftime('%H:%M')}-{conflicting_panel.end_time.strftime('%H:%M')}) "
+                                f"in room '{room.name}'"
+                            )
 
                         # Create panel
                         panel = Panel.objects.create(

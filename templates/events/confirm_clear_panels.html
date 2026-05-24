@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Clear All Panels - {{ convention.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h3 class="mb-0">
+                        <i class="material-icons align-middle">warning</i>
+                        Confirm Delete All Panels
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h5 class="alert-heading">
+                            <i class="material-icons align-middle">info</i>
+                            Warning: This action cannot be undone!
+                        </h5>
+                        <p class="mb-0">
+                            You are about to delete <strong>{{ panel_count }}</strong> panel(s) from 
+                            <strong>{{ convention.name }}</strong>.
+                        </p>
+                    </div>
+
+                    <p class="lead">
+                        This will permanently remove all panels and their associated data from this convention.
+                    </p>
+
+                    <ul class="list-unstyled mb-4">
+                        <li><i class="material-icons text-danger align-middle">close</i> All panel information will be deleted</li>
+                        <li><i class="material-icons text-danger align-middle">close</i> Tag and host associations will be removed</li>
+                        <li><i class="material-icons text-success align-middle">check</i> Rooms, tags, and hosts will be preserved</li>
+                        <li><i class="material-icons text-success align-middle">check</i> You can re-import panels from CSV after clearing</li>
+                    </ul>
+
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <div class="d-flex gap-3 justify-content-end">
+                            <a href="{% url 'events:import_panels_csv' convention.pk %}" class="btn btn-secondary">
+                                <i class="material-icons align-middle">arrow_back</i>
+                                Cancel
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="material-icons align-middle">delete_forever</i>
+                                Yes, Delete All {{ panel_count }} Panel(s)
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

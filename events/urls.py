@@ -41,5 +41,14 @@ urlpatterns = [
     path('ajax/hosts/reorder/<int:panel_id>/', views.reorder_hosts_ajax, name='reorder_hosts_ajax'),
     path('convention/<int:convention_pk>/import-panels/', views.import_panels_csv, name='import_panels_csv'),
     path('convention/<int:convention_pk>/export-panels/', views.export_panels_csv, name='export_panels_csv'),
+    path('convention/<int:convention_pk>/clear-panels/', views.clear_all_panels, name='clear_all_panels'),
+    path('convention/<int:convention_pk>/import-rooms/', views.import_rooms_csv, name='import_rooms_csv'),
+    path('convention/<int:convention_pk>/import-hosts/', views.import_hosts_csv, name='import_hosts_csv'),
+    path('convention/<int:convention_pk>/import-tags/', views.import_tags_csv, name='import_tags_csv'),
+    path('randomize-tag-colors/', views.randomize_tag_colors, name='randomize_tag_colors'),
+    path('download-csv-template/', views.download_csv_template, name='download_csv_template'),
+    path('download-rooms-template/', views.download_rooms_template, name='download_rooms_template'),
+    path('download-hosts-template/', views.download_hosts_template, name='download_hosts_template'),
+    path('download-tags-template/', views.download_tags_template, name='download_tags_template'),
     path('privacy/', views.privacy_policy, name='privacy_policy'),
-] 
+]

@@ -32,7 +32,7 @@
             --fc-star: #fff;
         }
 
-        html, body {
+        html {
             height: 100%;
         }
         body {
@@ -42,12 +42,18 @@
             transition: background-color var(--transition-speed), color var(--transition-speed);
             visibility: hidden;
             opacity: 0;
+            padding-bottom: 4rem;
         }
 
         body.visible {
             visibility: visible;
             opacity: 1;
             transition: opacity 0.2s ease-in, visibility 0s ease 0s;
+        }
+
+        /* Allow main content to grow and push footer down */
+        body > .container {
+            flex: 1 0 auto;
         }
 
         .navbar {
@@ -558,6 +564,7 @@
                 document.addEventListener('DOMContentLoaded', function() {
                     const viewToggleBtn = document.getElementById('viewToggleBtn');
                     const viewToggleIcon = document.getElementById('viewToggleIcon');
+                    const viewToggleLabel = document.getElementById('viewToggleLabel');
                     const body = document.body;
                     const gridTableContainer = document.querySelector('.grid-table-container');
                     // Get saved view from localStorage
@@ -572,6 +579,9 @@
                             if (viewToggleIcon) {
                                 viewToggleIcon.textContent = 'view_list';
                             }
+                            if (viewToggleLabel) {
+                                viewToggleLabel.textContent = 'List View';
+                            }
                         } else {
                             body.classList.remove('grid-view');
                             if (gridTableContainer) {
@@ -579,6 +589,9 @@
                             }
                             if (viewToggleIcon) {
                                 viewToggleIcon.textContent = 'grid_view';
+                            }
+                            if (viewToggleLabel) {
+                                viewToggleLabel.textContent = 'Grid View';
                             }
                         }
                     }

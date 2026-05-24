@@ -55,6 +55,26 @@
             <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addRoomModal">
                 <i class="material-icons">add</i> Add New Room
             </button>
+
+            <!-- Bulk Import Section for Rooms -->
+            <div class="mt-3 p-3 bg-light rounded">
+                <h6 class="mb-2">
+                    <i class="material-icons" style="vertical-align: middle; font-size: 1.2rem;">upload_file</i>
+                    Bulk Import Rooms
+                </h6>
+                <div class="d-flex gap-2 align-items-center">
+                    <a href="{% url 'events:download_rooms_template' %}" class="btn btn-sm btn-outline-info">
+                        <i class="material-icons">download</i> Download Template
+                    </a>
+                    <form method="post" action="{% url 'events:import_rooms_csv' convention.pk %}" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
+                        {% csrf_token %}
+                        <input type="file" name="csv_file" accept=".csv" class="form-control form-control-sm" style="width: auto;" required>
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <i class="material-icons">upload</i> Import CSV
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -100,6 +120,26 @@
             <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addHostModal">
                 <i class="material-icons">add</i> Add New Host
             </button>
+
+            <!-- Bulk Import Section for Hosts -->
+            <div class="mt-3 p-3 bg-light rounded">
+                <h6 class="mb-2">
+                    <i class="material-icons" style="vertical-align: middle; font-size: 1.2rem;">upload_file</i>
+                    Bulk Import Hosts
+                </h6>
+                <div class="d-flex gap-2 align-items-center">
+                    <a href="{% url 'events:download_hosts_template' %}" class="btn btn-sm btn-outline-info">
+                        <i class="material-icons">download</i> Download Template
+                    </a>
+                    <form method="post" action="{% url 'events:import_hosts_csv' convention.pk %}" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
+                        {% csrf_token %}
+                        <input type="file" name="csv_file" accept=".csv" class="form-control form-control-sm" style="width: auto;" required>
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <i class="material-icons">upload</i> Import CSV
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -148,9 +188,37 @@
             {% else %}
                 <p class="text-muted">No tags created yet.</p>
             {% endif %}
-            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTagModal">
-                <i class="material-icons">add</i> Add New Tag
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTagModal">
+                    <i class="material-icons">add</i> Add New Tag
+                </button>
+                <form method="post" action="{% url 'events:randomize_tag_colors' %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('This will randomize colors for all tags. Continue?');">
+                        <i class="material-icons">palette</i> Randomize All Colors
+                    </button>
+                </form>
+            </div>
+
+            <!-- Bulk Import Section for Tags -->
+            <div class="mt-3 p-3 bg-light rounded">
+                <h6 class="mb-2">
+                    <i class="material-icons" style="vertical-align: middle; font-size: 1.2rem;">upload_file</i>
+                    Bulk Import Tags
+                </h6>
+                <div class="d-flex gap-2 align-items-center">
+                    <a href="{% url 'events:download_tags_template' %}" class="btn btn-sm btn-outline-info">
+                        <i class="material-icons">download</i> Download Template
+                    </a>
+                    <form method="post" action="{% url 'events:import_tags_csv' convention.pk %}" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
+                        {% csrf_token %}
+                        <input type="file" name="csv_file" accept=".csv" class="form-control form-control-sm" style="width: auto;" required>
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <i class="material-icons">upload</i> Import CSV
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 </div>

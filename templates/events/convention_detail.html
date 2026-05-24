@@ -1270,8 +1270,9 @@ window.addEventListener('load', function() {
 </div>
 <div>
     <div class="control-toolbar col-auto d-flex gap-2 align-items-center">
-        <button id="viewToggleBtn" class="btn btn-admin-action btn-primary d-flex align-items-center justify-content-center p-0" type="button" title="Switch view" style="border-radius: 8px; background: linear-gradient(135deg, var(--primary-purple), var(--primary-purple-dark)); border: none; font-weight: 500; font-size: 1.1rem; box-shadow: 0 2px 8px rgba(98,0,234,0.10);">
-            <span id="viewToggleIcon" class="material-icons-round" style="font-size: 2rem;padding: 5px !important;">grid_view</span>
+        <button id="viewToggleBtn" class="btn btn-admin-action btn-primary" type="button" title="Switch view" style="border-radius: 8px; background: linear-gradient(135deg, var(--primary-purple), var(--primary-purple-dark)); border: none; font-weight: 500; font-size: 1.1rem; box-shadow: 0 2px 8px rgba(98,0,234,0.10); padding: 10px 20px; white-space: nowrap; min-width: 160px; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
+            <span id="viewToggleIcon" class="material-icons-round" style="font-size: 1.5rem; line-height: 1; pointer-events: none;">grid_view</span>
+            <span id="viewToggleLabel" style="font-size: 0.95rem; font-weight: 600; line-height: 1; pointer-events: none;">Grid View</span>
         </button>
         <div class="dropdown">
             <button class="btn btn-primary btn-admin-action dropdown-toggle px-4 py-2" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="background: linear-gradient(135deg, var(--primary-purple), var(--primary-purple-dark)); border: none; font-weight: 500; font-size: 1.1rem; box-shadow: 0 2px 8px rgba(98,0,234,0.10);">
@@ -1615,15 +1616,16 @@ window.addEventListener('load', function() {
                                         <tr>
                                             <th style="min-width: 120px;">Time</th>
                                             {% for room in day_matrix.rooms %}
-                                            <th>{{ room.name }}</th>
+                                            <th data-room-id="{{ room.id }}" data-room-name="{{ room.name }}">{{ room.name }}</th>
                                             {% endfor %}
                                         </tr>
+                                        <!-- DEBUG: Total rooms = {{ day_matrix.rooms|length }} -->
                                     </thead>
                                     <tbody>
                                         {% for time_row in day_matrix.rows %}
-                                        <tr class="{% if time_row.time.minute == 0 %}time-slot-hour{% else %}time-slot-half{% endif %}">
+                                        <tr class="{% if time_row.time.minute == 0 %}time-slot-hour{% else %}time-slot-half{% endif %}" data-time="{{ time_row.time|time:'g:i A' }}" data-row-index="{{ forloop.counter }}" data-is-last="{{ forloop.last }}">
                                             <th class="table-secondary">
-                                                {% if time_row.time.minute == 0 %}
+                                                {% if time_row.time.minute == 0 or forloop.last %}
                                                     {{ time_row.time|time:"g:i A" }}
                                                 {% endif %}
                                             </th>
@@ -1632,9 +1634,8 @@ window.addEventListener('load', function() {
                                                     {# skip output for rowspanned occupied cell #}
                                                 {% elif cell.type == 'panel' %}
                                                     {% with panel=cell.panel %}
-                                                    {% with tag_color=panel.ordered_tags.0.color|default:'#f8f9fa' %}
+                                                    {% with panel_color=panel.ordered_tags.0.color|default:'#6c757d' %}
                                                     <td class="p-0" rowspan="{{ cell.rowspan }}">
-                                                        {% with panel_color=panel.ordered_tags.0.color|default:'#ffc107' %}
                                                         <div class="grid-cell-card" data-panel-id="{{ panel.pk }}" data-tags="{% for tag in panel.ordered_tags %}{{ tag.name|lower }}{% if not forloop.last %},{% endif %}{% endfor %}" data-room="{{ panel.room.name|lower|slugify }}" data-tag-color="{{ panel_color }}" style="border-left: 4px solid {{ panel_color }}; background: {{ panel_color }}22; color: #fff; width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-start;">
                                                             <div class="grid-cell-content" style="height: 100%; display: flex; flex-direction: column; justify-content: flex-start;">
                                                                 <div class="fw-bold">{{ panel.title }}</div>
@@ -1650,8 +1651,6 @@ window.addEventListener('load', function() {
                                                         </div>
                                                         {% endwith %}
                                                     </td>
-                                                    </td>
-                                                    {% endwith %}
                                                     {% endwith %}
                                                 {% else %}
                                                     <td class="p-0"></td>
@@ -1673,6 +1672,8 @@ window.addEventListener('load', function() {
                         </div>
                         <div class="timeline">
                             {% for time_group in day.panels_by_time %}
+                            {% if time_group.panels %}
+                            {# Only show timeline rows that have panels #}
                             <div class="timeline-row">
                                 <div class="time-label time-label-list">
                                     {{ time_group.start_time|time:"g:i A" }}
@@ -1735,6 +1736,8 @@ window.addEventListener('load', function() {
                                     {% endfor %}
                                 </div>
                             </div>
+                            {% endif %}
+                            {# Close the 'if time_group.panels' #}
                             {% endfor %}
                         </div>
                     </div>
@@ -2049,6 +2052,10 @@ body.grid-view .table-responsive.table-responsive-x-only {
     z-index: 25;
     background: var(--bs-body-bg, #fff) !important;
     border-bottom: 1px solid rgba(0,0,0,0.3);
+    min-width: 150px !important;
+    padding: 8px !important;
+    text-align: center !important;
+    font-weight: 600 !important;
 }
 
 .table-grid-schedule th:first-child,
@@ -2431,7 +2438,23 @@ body.grid-view .grid-table-container {
 }
 
 /* add body-level bottom padding so final scrollbar position can be reached */
+/* The sticky footer is fixed at bottom, so we need enough padding to see all content */
 body {
+    padding-bottom: 6rem !important;
+    min-height: 100vh;
+}
+
+/* Ensure the main container also has bottom padding */
+.container {
+    padding-bottom: 3rem !important;
+}
+
+/* Ensure list view content doesn't get cut off */
+.day-schedule {
+    margin-bottom: 3rem !important;
+}
+
+.timeline {
     padding-bottom: 2rem !important;
 }
 
@@ -2466,6 +2489,11 @@ body.grid-view .day-grid {
     width: auto !important;
     max-width: 100%;
     margin: 0 auto;
+}
+
+/* Hide list view day-schedule containers when in grid view */
+body.grid-view .day-schedule {
+    display: none !important;
 }
 
 body.grid-view .grid-table-container {
@@ -3056,14 +3084,12 @@ html[data-bs-theme="dark"] .nav-tabs .nav-link.show {
 .control-toolbar #viewToggleBtn,
 .control-toolbar .btn-theme-switch {
     flex: 0 0 auto !important;
-    min-width: clamp(40px, 9vw, 60px) !important;
-    max-width: clamp(60px, 12vw, 70px) !important;
 }
 
 #viewToggleBtn {
-    min-width: clamp(44px, 9vw, 58px) !important;
-    max-width: clamp(44px, 12vw, 60px) !important;
-    width: clamp(44px, 9vw, 58px) !important;
+    min-width: 160px !important;
+    width: auto !important;
+    max-width: none !important;
 }
 
 #exportDropdown,
@@ -3191,8 +3217,8 @@ html[data-bs-theme="dark"] .nav-tabs .nav-link.show {
 }
 
 .table-grid-schedule tbody tr {
-    min-height: 40px !important;
-    height: auto !important;
+    min-height: 50px !important;
+    height: 50px !important;
 }
 
 .table-grid-schedule tbody tr.time-slot-hour th {
@@ -3212,17 +3238,22 @@ html[data-bs-theme="dark"] .nav-tabs .nav-link.show {
 .table-grid-schedule td:not(:first-child) {
     width: auto;
     min-width: 90px;
-    height: 100px !important;
+    height: 50px !important;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-word;
+}
+
+/* Cells with rowspan should not have fixed height */
+.table-grid-schedule td[rowspan] {
+    height: auto !important;
 }
 
 .table-grid-schedule th,
 .table-grid-schedule td {
     vertical-align: top;
     padding: 0.35rem 0.45rem;
-    height: auto !important;
+    height: 50px !important;
     min-height: 40px !important;
 }
 
@@ -3674,7 +3705,7 @@ html[data-bs-theme="dark"] .ts-control .item .remove {
     
 }
 
-.table-grid-schedule td, .table-grid-schedule th {
+.table-grid-schedule td, .table-grid-schedule tbody th {
     padding: 4px !important;
     border-collapse: collapse;
     height: 100% !important;
@@ -3683,12 +3714,23 @@ html[data-bs-theme="dark"] .ts-control .item .remove {
 }
 
 .table-grid-schedule td,
-.table-grid-schedule th {
+.table-grid-schedule tbody th {
     padding: 0 !important;
     position: relative !important;
-    min-height: 40px !important;
-    height: auto !important;
+    min-height: 50px !important;
+    height: 50px !important;
     vertical-align: top !important;
+}
+
+/* Time column cells need padding for the time labels */
+.table-grid-schedule tbody th:first-child {
+    padding: 8px !important;
+    vertical-align: middle !important;
+}
+
+/* Cells with rowspan expand naturally to cover all rows */
+.table-grid-schedule td[rowspan] {
+    height: auto !important;
 }
 
 .table-grid-schedule td {
@@ -3698,16 +3740,13 @@ html[data-bs-theme="dark"] .ts-control .item .remove {
 }
 
 .table-grid-schedule td > .grid-cell-card {
-    position: absolute !important;
-    inset: 0 !important;
+    position: relative !important;
     width: 100% !important;
     height: 100% !important;
-    min-width: 100% !important;
     min-height: 100% !important;
-    max-height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    justify-content: space-between !important;
+    justify-content: flex-start !important;
     box-sizing: border-box !important;
     padding: 0.35rem !important;
 }
